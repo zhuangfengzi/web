@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音视频通话 - 加入房间</title>
+    <script src="https://webrtc-solutions-logs.oss-cn-beijing.aliyuncs.com/rtc_web_sdk/1.24.7/AliRTCSdk-1.24.7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1A1A2E 0%, #16213E 100%);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .container {
+            flex: 1;
+            position: relative;
+        }
+        
+        /* 音频通话布局 */
+        .audio-mode {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .avatar-container {
+            margin-bottom: 40px;
+        }
+        
+        .avatar {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        
+        .avatar-icon {
+            font-size: 80px;
+            color: white;
+        }
+        
+        .user-info {
+            color: white;
+        }
+        
+        .user-info h2 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .call-status {
+            font-size: 16px;
+            color: #4CAF50;
+        }
+        
+        .audio-visualizer {
+            margin: 30px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        
+        .audio-bar {
+            width: 4px;
+            height: 20px;
+            background: #4CAF50;
+            border-radius: 2px;
+            animation: audioWave 1s ease-in-out infinite;
+        }
+        
+        .audio-bar:nth-child(2) { animation-delay: 0.1s; }
+        .audio-bar:nth-child(3) { animation-delay: 0.2s; }
+        .audio-bar:nth-child(4) { animation-delay: 0.3s; }
+        .audio-bar:nth-child(5) { animation-delay: 0.4s; }
+        
+        @keyframes audioWave {
+            0%, 100% { height: 20px; }
+            50% { height: 40px; }
+        }
+        
+        /* 视频通话布局 */
+        .video-container {
+            flex: 1;
+            position: relative;
+            background: #000;
+        }
+        
+        .remote-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: #333;
+        }
+        
+        .local-video {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 160px;
+            height: 120px;
+            border: 2px solid #fff;
+            border-radius: 8px;
+            object-fit: cover;
+            background: #666;
+        }
+        
+        /* 控制按钮 */
+        .controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 25px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .control-btn {
+            width: 50px;
+            height: 50px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .control-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.1);
+        }
+        
+        .control-btn.active {
+            background: #e74c3c;
+        }
+        
+        .control-btn.hangup {
+            background: #e74c3c;
+            width: 60px;
+            height: 60px;
+        }
+        
+        .control-btn.hangup:hover {
+            background: #c0392b;
+        }
+        
+        /* 等待界面 */
+        .waiting-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            text-align: center;
+        }
+        
+        .loading {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error-screen {
+            background: #e74c3c;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .retry-btn {
+            margin-top: 20px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background: white;
+            color: #e74c3c;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .local-video {
+                width: 120px;
+                height: 90px;
+                top: 10px;
+                right: 10px;
+            }
+            
+            .controls {
+                gap: 15px;
+                padding: 15px;
+            }
+            
+            .control-btn {
+                width: 45px;
+                height: 45px;
+            }
+            
+            .control-btn.hangup {
+                width: 55px;
+                height: 55px;
+            }
+            
+            .avatar {
+                width: 150px;
+                height: 150px;
+            }
+            
+            .avatar-icon {
+                font-size: 60px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="container">
+        <!-- 音频通话模式 -->
+        <div id="audioMode" class="audio-mode" style="display: none;">
+            <div class="avatar-container">
+                <div class="avatar">
+                    <div class="avatar-icon">🎧</div>
+                </div>
+                <div class="user-info">
+                    <h2 id="remoteUserName">等待对方加入...</h2>
+                    <div class="call-status" id="callStatus">音频通话</div>
+                </div>
+            </div>
+            
+            <div class="audio-visualizer" id="audioVisualizer" style="display: none;">
+                <div class="audio-bar"></div>
+                <div class="audio-bar"></div>
+                <div class="audio-bar"></div>
+                <div class="audio-bar"></div>
+                <div class="audio-bar"></div>
+            </div>
+        </div>
+        
+        <!-- 视频通话模式 -->
+        <div id="videoMode" class="video-container" style="display: none;">
+            <video id="remoteVideo" class="remote-video" autoplay playsinline></video>
+            <video id="localVideo" class="local-video" autoplay playsinline muted></video>
+        </div>
+        
+        <!-- 控制按钮 -->
+        <div class="controls">
+            <button id="muteBtn" class="control-btn" onclick="toggleMute()" title="静音/取消静音">
+                🎤
+            </button>
+            <button id="videoBtn" class="control-btn" onclick="toggleVideo()" title="开启/关闭视频" style="display: none;">
+                📹
+            </button>
+            <button id="hangupBtn" class="control-btn hangup" onclick="hangup()" title="挂断">
+                📞
+            </button>
+            <button id="switchBtn" class="control-btn" onclick="switchCamera()" title="切换摄像头" style="display: none;">
+                🔄
+            </button>
+        </div>
+        
+        <!-- 等待界面 -->
+        <div id="waitingScreen" class="waiting-screen">
+            <div class="loading"></div>
+            <h2>正在连接...</h2>
+            <p>房间号: <span id="roomIdDisplay"></span></p>
+            <p id="callTypeDisplay"></p>
+        </div>
+        
+        <!-- 错误界面 -->
+        <div id="errorScreen" class="error-screen" style="display: none;">
+            <h2>连接失败</h2>
+            <p id="errorMessage"></p>
+            <button class="retry-btn" onclick="location.reload()">重新尝试</button>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        class VideoChat {
+            constructor() {
+                this.rtcEngine = null;
+                this.roomId = null;
+                this.userId = null;
+                this.callType = 'video'; // 'audio' 或 'video'
+                this.isAudioMuted = false;
+                this.isVideoMuted = false;
+                this.isJoined = false;
+                this.localTracks = {
+                    video: null,
+                    audio: null
+                };
+                this.remoteTracks = {};
+                
+                this.init();
+            }
+            
+            init() {
+                // 解析URL参数
+                const urlParams = new URLSearchParams(window.location.search);
+                this.roomId = urlParams.get('id');
+                this.callType = urlParams.get('type') || 'video';
+                
+                if (!this.roomId) {
+                    this.showError('无效的房间链接');
+                    return;
+                }
+                
+                // 显示房间信息
+                document.getElementById('roomIdDisplay').textContent = this.roomId;
+                document.getElementById('callTypeDisplay').textContent = 
+                    this.callType === 'video' ? '视频通话模式' : '音频通话模式';
+                
+                // 设置UI模式
+                this.setupUIMode();
+                
+                this.userId = 'web_user_' + Date.now();
+                this.initRTC();
+            }
+            
+            setupUIMode() {
+                const audioMode = document.getElementById('audioMode');
+                const videoMode = document.getElementById('videoMode');
+                const videoBtn = document.getElementById('videoBtn');
+                const switchBtn = document.getElementById('switchBtn');
+                
+                if (this.callType === 'audio') {
+                    // 音频通话模式
+                    audioMode.style.display = 'flex';
+                    videoMode.style.display = 'none';
+                    videoBtn.style.display = 'none';
+                    switchBtn.style.display = 'none';
+                } else {
+                    // 视频通话模式
+                    audioMode.style.display = 'none';
+                    videoMode.style.display = 'block';
+                    videoBtn.style.display = 'flex';
+                    switchBtn.style.display = 'flex';
+                }
+            }
+            
+            async initRTC() {
+                try {
+                    // 安全获取AppID
+                    const appId = await window.ALIYUN_CONFIG.getAppId();
+                    
+                    if (!appId) {
+                        this.showError('配置获取失败，请联系管理员');
+                        return;
+                    }
+                    
+                    // 创建RTC引擎
+                    this.rtcEngine = AliRTCSdk.createClient({
+                        appId: appId,
+                        scene: 'communication'
+                    });
+                    
+                    // 设置事件监听
+                    this.setupEventListeners();
+                    
+                    // 加入频道
+                    await this.joinChannel();
+                    
+                } catch (error) {
+                    console.error('初始化RTC失败:', error);
+                    this.showError('初始化失败，请检查网络连接');
+                }
+            }
+            
+            setupEventListeners() {
+                // 远程用户发布流
+                this.rtcEngine.on('user-published', async (user, mediaType) => {
+                    console.log('远程用户发布:', user.userId, mediaType);
+                    await this.subscribeRemoteUser(user, mediaType);
+                });
+                
+                // 远程用户取消发布流
+                this.rtcEngine.on('user-unpublished', (user, mediaType) => {
+                    console.log('远程用户取消发布:', user.userId, mediaType);
+                    this.handleUserLeft(user.userId);
+                });
+                
+                // 用户离开频道
+                this.rtcEngine.on('user-left', (user) => {
+                    console.log('用户离开频道:', user.userId);
+                    this.handleUserLeft(user.userId);
+                });
+                
+                // 网络状态变化
+                this.rtcEngine.on('network-quality', (stats) => {
+                    console.log('网络质量:', stats);
+                });
+                
+                // 连接状态变化
+                this.rtcEngine.on('connection-state-changed', (newState, reason) => {
+                    console.log('连接状态变化:', newState, reason);
+                });
+            }
+            
+            async joinChannel() {
+                try {
+                    // 获取本地媒体流
+                    if (this.callType === 'video') {
+                        // 视频通话：音频+视频
+                        this.localTracks.video = await AliRTCSdk.createCameraVideoTrack({
+                            cameraId: 'default',
+                            encoderConfig: '720p_1'
+                        });
+                        this.localTracks.audio = await AliRTCSdk.createMicrophoneAudioTrack();
+                        
+                        // 播放本地视频
+                        this.localTracks.video.play('localVideo');
+                    } else {
+                        // 音频通话：仅音频
+                        this.localTracks.audio = await AliRTCSdk.createMicrophoneAudioTrack();
+                    }
+                    
+                    // 加入频道（免Token模式）
+                    await this.rtcEngine.join(
+                        '',  // token为空
+                        this.roomId,
+                        this.userId
+                    );
+                    
+                    // 发布本地流
+                    const tracksToPublish = [];
+                    if (this.localTracks.audio) tracksToPublish.push(this.localTracks.audio);
+                    if (this.localTracks.video) tracksToPublish.push(this.localTracks.video);
+                    
+                    await this.rtcEngine.publish(tracksToPublish);
+                    
+                    this.isJoined = true;
+                    this.hideWaitingScreen();
+                    
+                    console.log('成功加入房间:', this.roomId);
+                    
+                } catch (error) {
+                    console.error('加入房间失败:', error);
+                    this.showError('加入房间失败: ' + error.message);
+                }
+            }
+            
+            async subscribeRemoteUser(user, mediaType) {
+                try {
+                    await this.rtcEngine.subscribe(user, mediaType);
+                    
+                    if (mediaType === 'video' && this.callType === 'video') {
+                        // 播放远程视频
+                        user.videoTrack.play('remoteVideo');
+                    } else if (mediaType === 'audio') {
+                        // 处理远程音频
+                        this.handleRemoteAudio(user);
+                    }
+                    
+                    this.remoteTracks[user.userId] = user;
+                    this.updateRemoteUserInfo(user.userId);
+                    
+                } catch (error) {
+                    console.error('订阅远程用户失败:', error);
+                }
+            }
+            
+            handleRemoteAudio(user) {
+                if (this.callType === 'audio') {
+                    // 显示音频可视化
+                    document.getElementById('audioVisualizer').style.display = 'flex';
+                    document.getElementById('remoteUserName').textContent = `正在通话: ${user.userId}`;
+                    document.getElementById('callStatus').textContent = '音频通话中';
+                }
+            }
+            
+            updateRemoteUserInfo(userId) {
+                if (this.callType === 'audio') {
+                    document.getElementById('remoteUserName').textContent = `正在通话: ${userId}`;
+                }
+            }
+            
+            handleUserLeft(userId) {
+                if (this.remoteTracks[userId]) {
+                    delete this.remoteTracks[userId];
+                }
+                
+                if (this.callType === 'audio') {
+                    document.getElementById('audioVisualizer').style.display = 'none';
+                    document.getElementById('remoteUserName').textContent = '等待对方加入...';
+                    document.getElementById('callStatus').textContent = '音频通话';
+                }
+            }
+            
+            hideWaitingScreen() {
+                document.getElementById('waitingScreen').style.display = 'none';
+            }
+            
+            showError(message) {
+                document.getElementById('errorMessage').textContent = message;
+                document.getElementById('errorScreen').style.display = 'flex';
+                document.getElementById('waitingScreen').style.display = 'none';
+            }
+            
+            async toggleMute() {
+                if (!this.isJoined || !this.localTracks.audio) return;
+                
+                try {
+                    if (this.isAudioMuted) {
+                        await this.localTracks.audio.setEnabled(true);
+                        document.getElementById('muteBtn').textContent = '🎤';
+                        document.getElementById('muteBtn').classList.remove('active');
+                    } else {
+                        await this.localTracks.audio.setEnabled(false);
+                        document.getElementById('muteBtn').textContent = '🎤❌';
+                        document.getElementById('muteBtn').classList.add('active');
+                    }
+                    this.isAudioMuted = !this.isAudioMuted;
+                } catch (error) {
+                    console.error('切换静音失败:', error);
+                }
+            }
+            
+            async toggleVideo() {
+                if (!this.isJoined || !this.localTracks.video || this.callType === 'audio') return;
+                
+                try {
+                    if (this.isVideoMuted) {
+                        await this.localTracks.video.setEnabled(true);
+                        document.getElementById('videoBtn').textContent = '📹';
+                        document.getElementById('videoBtn').classList.remove('active');
+                    } else {
+                        await this.localTracks.video.setEnabled(false);
+                        document.getElementById('videoBtn').textContent = '📹❌';
+                        document.getElementById('videoBtn').classList.add('active');
+                    }
+                    this.isVideoMuted = !this.isVideoMuted;
+                } catch (error) {
+                    console.error('切换视频失败:', error);
+                }
+            }
+            
+            async switchCamera() {
+                if (!this.localTracks.video || this.callType === 'audio') return;
+                
+                try {
+                    await this.localTracks.video.switchDevice();
+                } catch (error) {
+                    console.error('切换摄像头失败:', error);
+                }
+            }
+            
+            async hangup() {
+                try {
+                    if (this.rtcEngine) {
+                        await this.rtcEngine.leave();
+                    }
+                    
+                    // 停止本地轨道
+                    if (this.localTracks.video) {
+                        this.localTracks.video.stop();
+                    }
+                    if (this.localTracks.audio) {
+                        this.localTracks.audio.stop();
+                    }
+                    
+                    // 尝试关闭窗口，如果不能关闭则显示结束信息
+                    if (window.history.length <= 1) {
+                        document.body.innerHTML = `
+                            <div class="error-screen">
+                                <h2>通话已结束</h2>
+                                <p>感谢使用我们的服务</p>
+                                <button class="retry-btn" onclick="window.close()">关闭页面</button>
+                            </div>
+                        `;
+                    } else {
+                        window.close();
+                    }
+                } catch (error) {
+                    console.error('挂断失败:', error);
+                    window.close();
+                }
+            }
+        }
+        
+        // 全局实例和函数
+        let videoChat;
+        
+        window.onload = () => {
+            videoChat = new VideoChat();
+        };
+        
+        function toggleMute() {
+            videoChat.toggleMute();
+        }
+        
+        function toggleVideo() {
+            videoChat.toggleVideo();
+        }
+        
+        function switchCamera() {
+            videoChat.switchCamera();
+        }
+        
+        function hangup() {
+            videoChat.hangup();
+        }
+        
+        // 页面卸载时清理资源
+        window.onbeforeunload = () => {
+            if (videoChat && videoChat.rtcEngine) {
+                videoChat.rtcEngine.leave();
+            }
+        };
+    </script>
+</body>
+</html>
