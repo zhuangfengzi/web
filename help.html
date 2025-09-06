@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>网页端连接问题解决指南</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        
+        .problem-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .problem-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .problem-icon {
+            margin-right: 10px;
+            font-size: 20px;
+        }
+        
+        .solution-steps {
+            list-style: none;
+            counter-reset: step-counter;
+        }
+        
+        .solution-steps li {
+            counter-increment: step-counter;
+            margin-bottom: 12px;
+            padding-left: 30px;
+            position: relative;
+        }
+        
+        .solution-steps li::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: #007bff;
+            color: white;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .code-block {
+            background: #f1f3f4;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        .warning-title {
+            font-weight: bold;
+            color: #8a6d3b;
+            margin-bottom: 8px;
+        }
+        
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        .success-title {
+            font-weight: bold;
+            color: #155724;
+            margin-bottom: 8px;
+        }
+        
+        .test-button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: background 0.3s;
+        }
+        
+        .test-button:hover {
+            background: #218838;
+        }
+        
+        .back-button {
+            background: #6c757d;
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            display: inline-block;
+            margin-top: 20px;
+        }
+        
+        .back-button:hover {
+            background: #5a6268;
+            color: white;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛠️ 网页端连接问题解决指南</h1>
+        
+        <div class="problem-section">
+            <div class="problem-title">
+                <span class="problem-icon">🔑</span>
+                问题1: AppID配置问题
+            </div>
+            <p><strong>错误提示:</strong> "AppID配置为空" 或 "配置获取失败"</p>
+            <ol class="solution-steps">
+                <li>确保URL中包含AppID参数：
+                    <div class="code-block">
+                        https://your-domain.com/room.html?id=房间号&appId=你的AppID
+                    </div>
+                </li>
+                <li>在阿里云控制台获取正确的AppID：
+                    <ul style="margin-top: 8px; padding-left: 20px;">
+                        <li>登录阿里云控制台</li>
+                        <li>进入"实时音视频通信RTC"产品页</li>
+                        <li>在"应用管理"中查看或创建应用</li>
+                        <li>复制AppID</li>
+                    </ul>
+                </li>
+                <li>如果没有AppID参数，页面会自动提示输入</li>
+            </ol>
+        </div>
+        
+        <div class="problem-section">
+            <div class="problem-title">
+                <span class="problem-icon">🌐</span>
+                问题2: 阿里云RTC SDK加载失败
+            </div>
+            <p><strong>错误提示:</strong> "阿里云RTC SDK加载失败，请检查网络连接"</p>
+            <ol class="solution-steps">
+                <li>检查网络连接是否正常</li>
+                <li>确认防火墙没有阻止外部JavaScript文件加载</li>
+                <li>尝试刷新页面重新加载SDK</li>
+                <li>检查浏览器控制台是否有其他网络错误</li>
+                <li>如果在企业网络环境，可能需要联系网络管理员</li>
+            </ol>
+        </div>
+        
+        <div class="problem-section">
+            <div class="problem-title">
+                <span class="problem-icon">🎥</span>
+                问题3: 摄像头/麦克风权限问题
+            </div>
+            <p><strong>错误提示:</strong> "请允许访问摄像头和麦克风权限"</p>
+            <ol class="solution-steps">
+                <li>在浏览器地址栏左侧找到摄像头/麦克风图标</li>
+                <li>点击图标，选择"允许"权限</li>
+                <li>如果没有弹出权限请求，刷新页面重试</li>
+                <li>检查浏览器设置中的摄像头/麦克风权限</li>
+                <li>确保设备的摄像头和麦克风硬件正常工作</li>
+            </ol>
+        </div>
+        
+        <div class="problem-section">
+            <div class="problem-title">
+                <span class="problem-icon">🔗</span>
+                问题4: 加入房间失败
+            </div>
+            <p><strong>错误提示:</strong> "加入房间失败" 或连接超时</p>
+            <ol class="solution-steps">
+                <li>检查房间ID是否正确</li>
+                <li>确认AppID配置正确</li>
+                <li>检查网络连接稳定性</li>
+                <li>尝试关闭VPN或代理</li>
+                <li>确认阿里云RTC服务正常运行</li>
+            </ol>
+        </div>
+        
+        <div class="warning">
+            <div class="warning-title">⚠️ 浏览器兼容性提醒</div>
+            <p>建议使用以下浏览器获得最佳体验：</p>
+            <ul style="margin-top: 8px; padding-left: 20px;">
+                <li>Chrome 70+ (推荐)</li>
+                <li>Firefox 65+</li>
+                <li>Safari 12+</li>
+                <li>Edge 79+</li>
+            </ul>
+        </div>
+        
+        <div class="success">
+            <div class="success-title">✅ 快速测试</div>
+            <p>使用以下按钮快速测试功能：</p>
+            <button class="test-button" onclick="testCamera()">测试摄像头</button>
+            <button class="test-button" onclick="testMicrophone()">测试麦克风</button>
+            <button class="test-button" onclick="testNetwork()">测试网络</button>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="javascript:history.back()" class="back-button">← 返回房间</a>
+            <a href="#" onclick="clearAllConfig()" class="back-button" style="background: #dc3545;">清除所有配置</a>
+        </div>
+    </div>
+    
+    <script>
+        function testCamera() {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    alert('✅ 摄像头测试成功！');
+                    stream.getTracks().forEach(track => track.stop());
+                })
+                .catch(error => {
+                    alert('❌ 摄像头测试失败: ' + error.message);
+                });
+        }
+        
+        function testMicrophone() {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    alert('✅ 麦克风测试成功！');
+                    stream.getTracks().forEach(track => track.stop());
+                })
+                .catch(error => {
+                    alert('❌ 麦克风测试失败: ' + error.message);
+                });
+        }
+        
+        function testNetwork() {
+            const testUrl = 'https://webrtc-solutions-logs.oss-cn-beijing.aliyuncs.com/rtc_web_sdk/1.24.7/AliRTCSdk-1.24.7.min.js';
+            
+            fetch(testUrl, { method: 'HEAD' })
+                .then(response => {
+                    if (response.ok) {
+                        alert('✅ 网络连接测试成功！可以正常访问阿里云CDN');
+                    } else {
+                        alert('❌ 网络连接测试失败: HTTP ' + response.status);
+                    }
+                })
+                .catch(error => {
+                    alert('❌ 网络连接测试失败: ' + error.message);
+                });
+        }
+        
+        function clearAllConfig() {
+            if (confirm('确定要清除所有保存的配置吗？这将删除保存的AppID等信息。')) {
+                localStorage.removeItem('ali_rtc_app_id');
+                alert('✅ 配置已清除！');
+            }
+        }
+    </script>
+</body>
+</html>

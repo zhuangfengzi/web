@@ -312,7 +312,10 @@
         <div id="errorScreen" class="error-screen" style="display: none;">
             <h2>连接失败</h2>
             <p id="errorMessage"></p>
-            <button class="retry-btn" onclick="location.reload()">重新尝试</button>
+            <div style="margin-top: 20px;">
+                <button class="retry-btn" onclick="location.reload()">重新尝试</button>
+                <button class="retry-btn" onclick="window.open('help.html', '_blank')" style="background: #007bff; margin-left: 10px;">查看帮助</button>
+            </div>
         </div>
     </div>
 
@@ -382,19 +385,32 @@
             
             async initRTC() {
                 try {
+                    // 检查阿里云RTC SDK是否正确加载
+                    if (typeof AliRTCSdk === 'undefined') {
+                        this.showError('阿里云RTC SDK加载失败，请检查网络连接并刷新页面');
+                        return;
+                    }
+                    
                     // 安全获取AppID
                     const appId = await window.ALIYUN_CONFIG.getAppId();
                     
-                    if (!appId) {
-                        this.showError('配置获取失败，请联系管理员');
+                    if (!appId || appId.trim() === '') {
+                        this.showError('AppID配置为空，请重新配置');
                         return;
                     }
+                    
+                    console.log('开始初始化RTC，AppID:', appId.substring(0, 8) + '***');
                     
                     // 创建RTC引擎
                     this.rtcEngine = AliRTCSdk.createClient({
                         appId: appId,
                         scene: 'communication'
                     });
+                    
+                    if (!this.rtcEngine) {
+                        this.showError('RTC引擎创建失败，请检查AppID是否正确');
+                        return;
+                    }
                     
                     // 设置事件监听
                     this.setupEventListeners();
@@ -404,7 +420,20 @@
                     
                 } catch (error) {
                     console.error('初始化RTC失败:', error);
-                    this.showError('初始化失败，请检查网络连接');
+                    let errorMsg = '初始化失败，请检查网络连接';
+                    
+                    // 根据错误类型提供更具体的错误信息
+                    if (error.name === 'NotAllowedError') {
+                        errorMsg = '请允许访问摄像头和麦克风权限';
+                    } else if (error.name === 'NotFoundError') {
+                        errorMsg = '未找到摄像头或麦克风设备';
+                    } else if (error.message && error.message.includes('appId')) {
+                        errorMsg = 'AppID配置错误，请检查配置';
+                    } else if (error.message && error.message.includes('network')) {
+                        errorMsg = '网络连接失败，请检查网络设置';
+                    }
+                    
+                    this.showError(errorMsg);
                 }
             }
             
@@ -533,9 +562,44 @@
             }
             
             showError(message) {
+                console.error('显示错误:', message);
+                
+                // 更新错误信息
                 document.getElementById('errorMessage').textContent = message;
+                
+                // 添加详细的解决建议
+                let suggestions = '';
+                if (message.includes('AppID')) {
+                    suggestions = '请确保在URL中添加正确的AppID参数：?appId=您的AppID';
+                } else if (message.includes('网络')) {
+                    suggestions = '请检查网络连接，确保可以访问阿里云服务';
+                } else if (message.includes('SDK')) {
+                    suggestions = '请检查防火墙设置，确保可以加载外部JavaScript文件';
+                } else if (message.includes('权限')) {
+                    suggestions = '请在浏览器中允许访问摄像头和麦克风';
+                } else if (message.includes('设备')) {
+                    suggestions = '请确保摄像头和麦克风设备连接正常';
+                }
+                
+                if (suggestions) {
+                    document.getElementById('errorMessage').innerHTML = 
+                        message + '<br><br><small style="color: #ccc;">解决建议: ' + suggestions + '</small>';
+                }
+                
+                // 显示错误界面
                 document.getElementById('errorScreen').style.display = 'flex';
                 document.getElementById('waitingScreen').style.display = 'none';
+                
+                // 5秒后自动提供配置选项
+                setTimeout(() => {
+                    if (message.includes('AppID') && window.ALIYUN_CONFIG) {
+                        const retryBtn = document.querySelector('.retry-btn');
+                        if (retryBtn) {
+                            retryBtn.innerHTML = '重新配置AppID';
+                            retryBtn.onclick = () => window.ALIYUN_CONFIG.promptForAppId();
+                        }
+                    }
+                }, 5000);
             }
             
             async toggleMute() {
