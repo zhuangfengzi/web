@@ -567,22 +567,22 @@
                     // 等待SDK加载完成
                     await loadSDKWithRetry();
                     
-                    if (typeof DingRTC === 'undefined' || !DingRTC.default) {
-                        throw new Error('SDK加载失败，未能找到DingRTC对象');
+                    // 检查SDK是否正确加载
+                    if (typeof AliRtcEngine === 'undefined') {
+                        throw new Error('SDK加载失败，未能找到AliRtcEngine对象');
                     }
                     
                     console.log('使用AppID:', this.appId);
                     
-                    // 创建RTC客户端
+                    // 创建RTC客户端（使用正确的官方API）
                     console.log('创建RTC客户端...');
-                    const RtcEngine = DingRTC.default;
+                    this.mediaEngine = new AliRtcEngine();
                     
                     // 检查系统支持
-                    if (!RtcEngine.checkSystemRequirements()) {
+                    const isSupported = await this.mediaEngine.isSupport();
+                    if (!isSupported) {
                         throw new Error('当前环境不支持RTC通信，请检查URL协议是否为https或使用最新版Chrome浏览器');
                     }
-                    
-                    this.mediaEngine = RtcEngine.createClient();
                     
                     console.log('RTC引擎创建成功');
                     this.setupRTCEvents();
@@ -662,94 +662,54 @@
                 try {
                     console.log('开始加入会话...');
                     
-                    // 直接使用已验证的频道ID，不再进行标准化处理
-                    console.log('使用频道ID:', this.sessionId);
-                    
-                    // 获取媒体流，分辨率默认720p
+                    // 首先开启本地预览（按照官方示例）
                     if (this.mode === 'video') {
-                        console.log('创建视频轨道...');
-                        // 使用官方API创建媒体流
-                        const RtcEngine = DingRTC.default;
-                        const [videoTrack, audioTrack] = await RtcEngine.createMicrophoneAndCameraTracks(
-                            { dimension: 'VD_1280x720', frameRate: 30 }, // 视频配置
-                            {} // 音频配置
-                        );
-                        this.localTracks.video = videoTrack;
-                        this.localTracks.audio = audioTrack;
+                        console.log('开启视频预览...');
+                        const localVideoEl = document.getElementById('localVideo');
                         
-                        // 确保视频模式可见后再播放
-                        document.getElementById('videoMode').classList.remove('hidden');
-                        
-                        // 等待DOM准备好后播放视频
-                        setTimeout(() => {
-                            const localVideoEl = document.getElementById('localVideo');
-                            if (localVideoEl && this.localTracks.video) {
-                                this.localTracks.video.play(localVideoEl);
-                                console.log('本地视频播放成功');
-                            }
-                        }, 100);
-                        
-                        console.log('视频音频轨道创建成功');
+                        try {
+                            await this.mediaEngine.startPreview(localVideoEl);
+                            document.getElementById('videoMode').classList.remove('hidden');
+                            console.log('视频预览启动成功');
+                        } catch (error) {
+                            console.warn('视频预览失败:', error.message);
+                        }
                     } else {
-                        console.log('创建音频轨道...');
-                        const RtcEngine = DingRTC.default;
-                        this.localTracks.audio = await RtcEngine.createMicrophoneAudioTrack();
-                        
-                        // 显示音频模式
                         document.getElementById('audioMode').classList.remove('hidden');
-                        
-                        console.log('音频轨道创建成功');
                     }
                     
-                    // 加入会话
-                    console.log('加入会话参数:', this.appId, this.sessionId, this.userId);
-                    
-                    // 获取访问凭证
-                    console.log('使用手动输入的Token:', this.token ? '有效(' + this.token.length + '字符)' : '未设置');
-                    
-                    if (!this.token || this.token.trim() === '') {
-                        throw new Error('未找到有效的访问凭证，请输入Token');
-                    }
-                    
-                    // 构建鉴权信息
+                    // 构建鉴权信息（按照官方格式）
                     const authInfo = {
-                        appId: this.appId,
-                        channelId: this.sessionId,
-                        userId: this.userId,
-                        token: this.token, // 使用手动输入的 Token
-                        userName: this.userId
+                        appid: this.appId,
+                        userid: this.userId,
+                        channel: this.sessionId,
+                        token: this.token,
+                        nonce: 'AK-' + Math.floor(Date.now() / 1000),
+                        timestamp: Math.floor(Date.now() / 1000) + 48 * 60 * 60,
+                        gslb: ["https://rgslb.rtc.aliyuncs.com"]
                     };
                     
-                    // 加入会话
-                    try {
-                        console.log('尝试加入会话，参数:', {
-                            appId: this.appId,
-                            channelId: this.sessionId,
-                            userId: this.userId,
-                            tokenLength: this.token.length,
-                            tokenPreview: this.token.substring(0, 20) + '...'
-                        });
-                        await this.mediaEngine.join(authInfo);
-                        console.log('会话加入成功');
-                    } catch (error) {
-                        console.error('加入会话失败:', error.message);
-                        console.error('错误详情:', error);
-                        throw new Error('加入会话失败: ' + error.message + '\n\n请检查:\n1. Token是否正确\n2. 频道ID是否有效\n3. 网络连接是否正常');
-                    }
+                    console.log('鉴权信息:', {
+                        appid: this.appId,
+                        userid: this.userId,
+                        channel: this.sessionId,
+                        tokenLength: this.token.length
+                    });
                     
-                    // 发布流
-                    const tracks = [this.localTracks.audio];
-                    if (this.localTracks.video) tracks.push(this.localTracks.video);
+                    // 使用官方API加入频道
+                    await this.mediaEngine.joinChannel(authInfo, this.userId);
+                    console.log('会话加入成功');
                     
-                    console.log('发布媒体流...');
-                    await this.mediaEngine.publish(tracks);
-                    console.log('媒体流发布成功');
+                    // 设置发布配置并发布流
+                    this.mediaEngine.configLocalAudioPublish = true;
+                    this.mediaEngine.configLocalCameraPublish = this.mode === 'video';
+                    
+                    await this.mediaEngine.publish();
+                    console.log('本地流发布成功');
                     
                     // 成功后隐藏等待界面
                     document.getElementById('waitingScreen').classList.add('hidden');
                     document.getElementById('connectionStatus').textContent = '等待对方加入...';
-                    
-                    console.log('初始化完成，等待对方加入...');
                     
                 } catch (error) {
                     console.error('加入会话错误:', error);
