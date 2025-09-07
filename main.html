@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>媒体播放器</title>
+    <link rel="preload" href="https://g.alicdn.com/dingding/dingrtc-sdk/3.6.0/aliyun-webrtc-sdk.js" as="script">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #1A1A2E 0%, #16213E 100%);
+            height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+        }
+        .container { flex: 1; position: relative; }
+        .status-bar {
+            position: absolute; top: 0; left: 0; right: 0; padding: 20px;
+            background: linear-gradient(180deg, rgba(0,0,0,0.8) 0%, transparent 100%);
+            z-index: 1000; display: flex; justify-content: space-between; color: white;
+        }
+        .video-container { flex: 1; position: relative; background: #000; }
+        .remote-video { width: 100%; height: 100%; object-fit: cover; }
+        .local-video {
+            position: absolute; top: 80px; right: 20px; width: 120px; height: 160px;
+            border: 2px solid rgba(255,255,255,0.3); border-radius: 12px; object-fit: cover;
+        }
+        .audio-mode {
+            flex: 1; display: flex; flex-direction: column; align-items: center;
+            justify-content: center; text-align: center; padding: 40px;
+        }
+        .avatar {
+            width: 200px; height: 200px; border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;
+        }
+        .avatar-icon { font-size: 80px; color: white; }
+        .controls {
+            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 20px; padding: 20px; background: rgba(0,0,0,0.4);
+            border-radius: 50px; backdrop-filter: blur(20px);
+        }
+        .control-btn {
+            width: 56px; height: 56px; border: none; border-radius: 50%;
+            background: rgba(255,255,255,0.15); color: white; font-size: 24px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .control-btn.hangup { background: #e74c3c; width: 64px; height: 64px; }
+        .overlay {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.9); color: white; text-align: center; z-index: 2000;
+        }
+        .loading-spinner {
+            width: 60px; height: 60px; border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid #4CAF50; border-radius: 50%;
+            animation: spin 1s linear infinite; margin-bottom: 20px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="status-bar">
+            <div><span>会话: </span><span id="sessionId">-</span></div>
+            <div id="connectionStatus">连接中...</div>
+        </div>
+        
+        <div id="videoMode" class="video-container hidden">
+            <video id="remoteVideo" class="remote-video" autoplay playsinline></video>
+            <video id="localVideo" class="local-video" autoplay playsinline muted></video>
+        </div>
+        
+        <div id="audioMode" class="audio-mode hidden">
+            <div class="avatar"><div class="avatar-icon">🎧</div></div>
+            <h2 id="remoteUserName" style="color: white;">等待连接...</h2>
+        </div>
+        
+        <div class="controls">
+            <button id="muteBtn" class="control-btn">🎤</button>
+            <button id="videoBtn" class="control-btn hidden">📹</button>
+            <button id="hangupBtn" class="control-btn hangup">📞</button>
+        </div>
+        
+        <div id="waitingScreen" class="overlay">
+            <div style="max-width: 500px; margin: 0 auto; text-align: center;">
+                <h2 style="margin-bottom: 30px; color: #4CAF50;">🔑 手动输入RTC参数</h2>
+                
+                <div style="text-align: left; margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 5px; color: white;">AppID：</label>
+                    <input type="text" id="manualAppId" placeholder="输入阿里云RTC AppID" style="
+                        width: 100%; padding: 12px; border: 1px solid #333;
+                        border-radius: 8px; background: rgba(255,255,255,0.1);
+                        color: white; font-size: 16px; margin-bottom: 15px; outline: none;
+                    ">
+                </div>
+                
+                <div style="text-align: left; margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 5px; color: white;">频道ID：</label>
+                    <input type="text" id="manualChannelId" placeholder="输入房间/频道ID" style="
+                        width: 100%; padding: 12px; border: 1px solid #333;
+                        border-radius: 8px; background: rgba(255,255,255,0.1);
+                        color: white; font-size: 16px; margin-bottom: 15px; outline: none;
+                    ">
+                </div>
+                
+                <div style="text-align: left; margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 5px; color: white;">用户ID：</label>
+                    <input type="text" id="manualUserId" placeholder="输入用户ID" style="
+                        width: 100%; padding: 12px; border: 1px solid #333;
+                        border-radius: 8px; background: rgba(255,255,255,0.1);
+                        color: white; font-size: 16px; margin-bottom: 15px; outline: none;
+                    ">
+                </div>
+                
+                <div style="text-align: left; margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 5px; color: white;">Token：</label>
+                    <textarea id="manualToken" placeholder="输入您的阿里云RTC Token" style="
+                        width: 100%; padding: 12px; border: 1px solid #333;
+                        border-radius: 8px; background: rgba(255,255,255,0.1);
+                        color: white; font-size: 14px; margin-bottom: 15px; outline: none;
+                        min-height: 80px; resize: vertical;
+                    "></textarea>
+                </div>
+                
+                <div style="text-align: left; margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 5px; color: white;">通话模式：</label>
+                    <select id="manualMode" style="
+                        width: 100%; padding: 12px; border: 1px solid #333;
+                        border-radius: 8px; background: rgba(255,255,255,0.1);
+                        color: white; font-size: 16px; margin-bottom: 15px; outline: none;
+                    ">
+                        <option value="video" style="background: #333;">视频通话</option>
+                        <option value="audio" style="background: #333;">音频通话</option>
+                    </select>
+                </div>
+                
+                <button onclick="manualJoinSession()" style="
+                    width: 100%; padding: 15px; border: none; border-radius: 8px;
+                    background: #4CAF50; color: white; cursor: pointer; font-weight: bold;
+                    font-size: 16px; margin-bottom: 15px;
+                ">加入会话</button>
+                
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="saveManualInputs()" style="
+                        flex: 1; padding: 10px; border: 1px solid #666;
+                        border-radius: 8px; background: transparent;
+                        color: white; cursor: pointer;
+                    ">保存设置</button>
+                    <button onclick="loadSavedInputs()" style="
+                        flex: 1; padding: 10px; border: 1px solid #666;
+                        border-radius: 8px; background: transparent;
+                        color: white; cursor: pointer;
+                    ">加载设置</button>
+                </div>
+                
+                <p style="margin-top: 20px; font-size: 12px; opacity: 0.7; color: white;">
+                    手动输入模式：所有参数都由您手动填写，不依赖URL参数
+                </p>
+            </div>
+        </div>
+        
+        <div id="errorScreen" class="overlay hidden">
+            <h2 style="color: #e74c3c;">连接失败</h2>
+            <p id="errorMessage">发生了未知错误</p>
+            <div id="errorDetails" style="margin-top: 10px; font-size: 12px; opacity: 0.7; max-width: 500px;"></div>
+            <div style="margin-top: 20px;">
+                <button onclick="location.reload()" style="margin: 5px; padding: 10px 20px; border: none; border-radius: 5px; background: #4CAF50; color: white; cursor: pointer;">重新尝试</button>
+                <button onclick="window.open('https://support.qq.com/products/168613', '_blank')" style="margin: 5px; padding: 10px 20px; border: none; border-radius: 5px; background: #2196F3; color: white; cursor: pointer;">获取帮助</button>
+            </div>
+        </div>
+        
+        <!-- 测试面板 -->
+        <div id="testPanel" class="overlay hidden" style="background: rgba(0,0,0,0.95); color: white; padding: 20px; overflow-y: auto;">
+            <div style="max-width: 800px; margin: 0 auto;">
+                <h2 style="text-align: center; margin-bottom: 30px;">🧪 媒体测试面板</h2>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px;">
+                    <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px;">
+                        <h3>📡 SDK状态</h3>
+                        <div id="testSdkStatus" style="margin: 10px 0; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 5px;">检查中...</div>
+                        <button onclick="checkSDKStatus()" style="padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">刷新状态</button>
+                    </div>
+                    
+                    <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px;">
+                        <h3>🔍 参数解析</h3>
+                        <div id="testParamsStatus" style="margin: 10px 0; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 5px;">未解析</div>
+                        <button onclick="parseCurrentParams()" style="padding: 8px 16px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer;">解析参数</button>
+                    </div>
+                    
+                    <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px;">
+                        <h3>🔑 配置状态</h3>
+                        <div id="testConfigStatus" style="margin: 10px 0; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 5px;">检查中...</div>
+                        <button onclick="checkConfigStatus()" style="padding: 8px 16px; background: #FF9800; color: white; border: none; border-radius: 5px; cursor: pointer;">检查配置</button>
+                    </div>
+                    
+                    <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px;">
+                        <h3>🎮 控制台</h3>
+                        <div id="testConsole" style="margin: 10px 0; padding: 10px; background: rgba(0,0,0,0.5); border-radius: 5px; font-family: monospace; font-size: 12px; max-height: 100px; overflow-y: auto;">等待日志...</div>
+                        <button onclick="clearTestConsole()" style="padding: 8px 16px; background: #f44336; color: white; border: none; border-radius: 5px; cursor: pointer;">清空</button>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 30px;">
+                    <button onclick="closeTestPanel()" style="padding: 12px 24px; background: #666; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">关闭测试面板</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 媒体资源加载管理
+        let sdkLoadPromise = null;
+        
+        function loadSDKWithRetry() {
+            if (sdkLoadPromise) return sdkLoadPromise;
+            
+            // 媒体库源
+            const sdkUrls = [
+                // 主要CDN
+                'https://g.alicdn.com/dingding/dingrtc-sdk/3.6.0/aliyun-webrtc-sdk.js',
+                // 备用源 1
+                'https://dingrtc.oss-cn-zhangjiakou.aliyuncs.com/sdk/web/index.umd.3.6.0.js',
+                // 备用源 2
+                'https://rtc-web-static.oss-cn-hangzhou.aliyuncs.com/sdk/3.6.0/aliyun-webrtc-sdk.js',
+                // 国际CDN备用
+                'https://cdn.jsdelivr.net/npm/@alicloud/rtc-sdk@3.6.0/dist/aliyun-webrtc-sdk.js',
+                // 全球CDN备用
+                'https://unpkg.com/@alicloud/rtc-sdk@3.6.0/dist/aliyun-webrtc-sdk.js'
+            ];
+            
+            sdkLoadPromise = new Promise(async (resolve, reject) => {
+                console.log('开始加载媒体库...');
+                
+                for (let i = 0; i < sdkUrls.length; i++) {
+                    try {
+                        console.log(`尝试加载 (${i + 1}/${sdkUrls.length}):`, sdkUrls[i]);
+                        
+                        // 超时控制
+                        await Promise.race([
+                            loadScript(sdkUrls[i]),
+                            new Promise((_, reject) => 
+                                setTimeout(() => reject(new Error('超时')), 15000)
+                            )
+                        ]);
+                        
+                        // 等待初始化完成
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        
+                        // 检查加载状态（按照官方示例）
+                        if (typeof DingRTC !== 'undefined' && DingRTC.default) {
+                            console.log('媒体库加载成功，设置AliRtcEngine兼容别名');
+                            window.AliRtcEngine = DingRTC.default;
+                            resolve();
+                            return;
+                        } else {
+                            console.warn(`库加载完成但DingRTC对象未定义 (${i + 1})`);
+                        }
+                    } catch (error) {
+                        console.warn(`库加载失败 (${i + 1}):`, error.message);
+                    }
+                }
+                
+                // 降级处理
+                console.error('所有官方源都无法加载，尝试降级处理...');
+                
+                // 检查全局对象
+                if (typeof window.DingRTC !== 'undefined' && window.DingRTC.default) {
+                    console.log('检测到全局对象，设置兼容别名...');
+                    window.AliRtcEngine = window.DingRTC.default;
+                    resolve();
+                    return;
+                }
+                
+                reject(new Error('所有媒体源都无法加载，请检查网络连接或使用其他网络环境'));
+            });
+            
+            return sdkLoadPromise;
+        }
+        
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                // 检查脚本是否已经存在
+                const existingScript = document.querySelector(`script[src="${src}"]`);
+                if (existingScript) {
+                    if (typeof AliRtcEngine !== 'undefined') {
+                        resolve();
+                        return;
+                    }
+                }
+                
+                const script = document.createElement('script');
+                script.src = src;
+                script.crossOrigin = 'anonymous';
+                script.onload = () => {
+                    console.log('脚本加载完成:', src);
+                    resolve();
+                };
+                script.onerror = (error) => {
+                    console.error('脚本加载错误:', src, error);
+                    reject(new Error('Script load failed'));
+                };
+                
+                document.head.appendChild(script);
+            });
+        }
+        
+        // 网络诊断功能
+        async function diagnoseNetwork() {
+            const results = [];
+            
+            // 检查基本网络连接
+            try {
+                const response = await fetch('https://www.baidu.com/favicon.ico', { 
+                    method: 'HEAD', 
+                    mode: 'no-cors',
+                    cache: 'no-cache'
+                });
+                results.push('✅ 基本网络连接正常');
+            } catch (error) {
+                results.push('❌ 基本网络连接失败');
+            }
+            
+            // 检查CDN访问
+            const cdnTests = [
+                'https://g.alicdn.com',
+                'https://cdn.jsdelivr.net',
+                'https://unpkg.com'
+            ];
+            
+            for (const cdn of cdnTests) {
+                try {
+                    await fetch(cdn + '/favicon.ico', { 
+                        method: 'HEAD', 
+                        mode: 'no-cors',
+                        cache: 'no-cache',
+                        signal: AbortSignal.timeout(5000)
+                    });
+                    results.push(`✅ ${cdn} 可访问`);
+                } catch (error) {
+                    results.push(`❌ ${cdn} 不可访问`);
+                }
+            }
+            
+            return results;
+        }
+    </script>
+    <script src="config.js"></script>
+    <script>
+        class MediaPlayer {
+            constructor() {
+                this.mediaEngine = null;
+                this.sessionId = null;
+                this.userId = null;
+                this.appId = null;
+                this.mode = 'video';
+                this.cameraTrack = null;
+                this.micTrack = null;
+                this.token = null;
+                this.init();
+            }
+            
+            init() {
+                console.log('手动输入模式初始化...');
+                this.setupUI();
+                // 不再调用fillExampleData，也不解析URL参数
+                // 保持输入框为空，等待用户手动输入
+                this.clearOldData();
+                console.log('初始化完成，等待用户手动输入参数...');
+            }
+            
+            // 清除任何可能的缓存数据和初始值
+            clearOldData() {
+                // 首先尝试从 URL 参数获取房间信息
+                const urlParams = new URLSearchParams(window.location.search);
+                const roomId = urlParams.get('roomId');
+                const userId = urlParams.get('userId');
+                const appId = urlParams.get('appId');
+                const mode = urlParams.get('mode');
+                const token = urlParams.get('token');
+                
+                console.log('检查URL参数:', { roomId, userId, appId, mode, token: token ? 'YES' : 'NO' });
+                
+                // 如果 URL 中有参数，就自动填入
+                if (roomId || userId || appId) {
+                    console.log('检测到URL参数，自动填入...');
+                    
+                    if (appId) {
+                        document.getElementById('manualAppId').value = appId;
+                    }
+                    if (roomId) {
+                        document.getElementById('manualChannelId').value = roomId;
+                    }
+                    if (userId) {
+                        document.getElementById('manualUserId').value = userId;
+                    }
+                    if (token) {
+                        document.getElementById('manualToken').value = token;
+                    }
+                    if (mode) {
+                        document.getElementById('manualMode').value = mode;
+                    }
+                    
+                    // 如果所有参数都有，可以直接加入
+                    if (roomId && userId && appId && token) {
+                        console.log('所有参数完整，3秒后自动加入...');
+                        
+                        // 显示提示信息
+                        const waitingScreen = document.getElementById('waitingScreen');
+                        waitingScreen.innerHTML = `
+                            <div class="loading-spinner"></div>
+                            <h2>检测到房间信息</h2>
+                            <p>正在自动加入房间: ${roomId}</p>
+                            <p>用户ID: ${userId}</p>
+                            <p>3秒后自动连接...</p>
+                        `;
+                        
+                        setTimeout(() => {
+                            manualJoinSession();
+                        }, 3000);
+                        return;
+                    }
+                } else {
+                    // 没有URL参数，确保所有输入框都为空
+                    const inputs = [
+                        'manualAppId',
+                        'manualChannelId', 
+                        'manualUserId',
+                        'manualToken'
+                    ];
+                    
+                    inputs.forEach(id => {
+                        const element = document.getElementById(id);
+                        if (element) {
+                            element.value = '';
+                        }
+                    });
+                }
+                
+                // 设置默认模式
+                const modeSelect = document.getElementById('manualMode');
+                if (modeSelect && !mode) {
+                    modeSelect.value = 'video';
+                }
+            }
+            
+
+            
+            parseParams() {
+                const params = new URLSearchParams(window.location.search);
+                try {
+                    console.log('当前URL参数:', window.location.search);
+                    console.log('完整URL:', window.location.href);
+                    
+                    // 解码隐晦参数
+                    const theme = params.get('theme');
+                    const lang = params.get('lang');
+                    const source = params.get('source');
+                    const ref = params.get('ref');
+                    const version = params.get('version'); // 包含编码的AppID
+                    const debug = params.get('debug');
+                    const token = params.get('token'); // 直接获取token参数
+                    
+                    console.log('原始参数:', { theme, lang, source, ref, version, debug, token: token ? 'YES (' + token.length + ' chars)' : 'NO' });
+                    
+                    if (!theme || !lang || !source || !ref) {
+                        throw new Error('缺少必要参数: theme=' + theme + ', lang=' + lang + ', source=' + source + ', ref=' + ref);
+                    }
+                    
+                    // 重组原始参数 - 修复双重解码问题
+                    try {
+                        // 先尝试直接解码（如果参数已经被编码）
+                        const themePart1 = atob(theme);
+                        const langPart2 = atob(lang);
+                        const sourcePart1 = atob(source);
+                        const refPart2 = atob(ref);
+                        
+                        this.sessionId = themePart1 + langPart2;
+                        this.userId = sourcePart1 + refPart2;
+                        
+                        console.log('解码成功:', {
+                            themePart1,
+                            langPart2,
+                            sourcePart1,
+                            refPart2,
+                            sessionId: this.sessionId,
+                            userId: this.userId
+                        });
+                        
+                    } catch (decodeError) {
+                        console.warn('直接解码失败，尝试URI解码:', decodeError);
+                        // 如果直接解码失败，尝试先URI解码
+                        const themePart1 = atob(decodeURIComponent(theme));
+                        const langPart2 = atob(decodeURIComponent(lang));
+                        const sourcePart1 = atob(decodeURIComponent(source));
+                        const refPart2 = atob(decodeURIComponent(ref));
+                        
+                        this.sessionId = themePart1 + langPart2;
+                        this.userId = sourcePart1 + refPart2;
+                        
+                        console.log('URI解码成功:', {
+                            themePart1,
+                            langPart2,
+                            sourcePart1,
+                            refPart2,
+                            sessionId: this.sessionId,
+                            userId: this.userId
+                        });
+                    }
+                    this.mode = debug === 'false' ? 'video' : 'audio';
+                    
+                    // 验证解码结果
+                    if (!this.sessionId || !this.userId) {
+                        throw new Error('参数解码失败，获得空的房间ID或用户ID');
+                    }
+                    
+                    if (this.sessionId.length < 5 || this.userId.length < 5) {
+                        throw new Error('解码结果太短，可能解码错误');
+                    }
+                    
+                    console.log('最终解码结果:', {
+                        sessionId: this.sessionId,
+                        userId: this.userId,
+                        mode: this.mode
+                    });
+                    
+                    // 尝试从version参数解码AppID
+                    if (version) {
+                        try {
+                            this.encodedAppId = version;
+                            console.log('从URL获取到编码的AppID:', version);
+                        } catch (e) {
+                            console.warn('解码AppID失败:', e);
+                        }
+                    }
+                    
+                    // 在解码前先保存token
+                    if (token && token.trim()) {
+                        console.log('从URL参数获取到Token，保存到本地存储');
+                        window.ALIYUN_CONFIG.saveTokenToStorage(token);
+                    }
+                    
+                    // 更新显示
+                    document.getElementById('sessionId').textContent = this.sessionId.substring(0, 15) + '...';
+                    document.getElementById('waitingSessionId').textContent = this.sessionId.substring(0, 15) + '...';
+                } catch (error) {
+                    console.error('参数解析错误:', error);
+                    console.error('当前URL:', window.location.href);
+                    this.showError('无效的访问链接: ' + error.message);
+                }
+            }
+            
+            setupUI() {
+                const videoMode = document.getElementById('videoMode');
+                const audioMode = document.getElementById('audioMode');
+                const videoBtn = document.getElementById('videoBtn');
+                
+                // 隐藏所有模式
+                videoMode.classList.add('hidden');
+                audioMode.classList.add('hidden');
+                
+                // 显示手动输入界面
+                document.getElementById('waitingScreen').classList.remove('hidden');
+            }
+            
+            // 手动加入会话
+            async manualJoinSession() {
+                try {
+                    // 获取手动输入的参数
+                    this.appId = document.getElementById('manualAppId').value.trim();
+                    this.sessionId = document.getElementById('manualChannelId').value.trim();
+                    this.userId = document.getElementById('manualUserId').value.trim();
+                    this.token = document.getElementById('manualToken').value.trim();
+                    this.mode = document.getElementById('manualMode').value;
+                    
+                    // 验证参数 - 详细检查每个必填参数
+                    if (!this.appId || this.appId === '') {
+                        throw new Error('请输入AppID（应用标识）');
+                    }
+                    if (!this.sessionId || this.sessionId === '') {
+                        throw new Error('请输入频道ID（房间ID）');
+                    }
+                    if (!this.userId || this.userId === '') {
+                        throw new Error('请输入用户ID');
+                    }
+                    if (!this.token || this.token === '') {
+                        throw new Error('请输入Token（访问令牌）');
+                    }
+                    
+                    // 验证AppID格式（只能包含字母、数字、下划线）
+                    if (!/^[a-zA-Z0-9_]+$/.test(this.appId)) {
+                        throw new Error('AppID格式无效，只能包含字母、数字、下划线');
+                    }
+                    
+                    // 验证频道ID格式（只能包含字母、数字、下划线、连字符）
+                    if (!/^[a-zA-Z0-9_-]+$/.test(this.sessionId)) {
+                        throw new Error('频道ID格式无效，只能包含字母、数字、下划线、连字符');
+                    }
+                    
+                    // 验证用户ID格式（只能包含字母、数字、下划线、连字符）
+                    if (!/^[a-zA-Z0-9_-]+$/.test(this.userId)) {
+                        throw new Error('用户ID格式无效，只能包含字母、数字、下划线、连字符');
+                    }
+                    
+                    // 验证长度
+                    if (this.sessionId.length > 64) {
+                        throw new Error('频道ID长度不能超过64个字符');
+                    }
+                    if (this.userId.length > 64) {
+                        throw new Error('用户ID长度不能超过64个字符');
+                    }
+                    
+                    console.log('手动输入的参数验证通过:', {
+                        appId: this.appId,
+                        sessionId: this.sessionId,
+                        userId: this.userId,
+                        mode: this.mode,
+                        tokenLength: this.token.length
+                    });
+                    
+                    // 隐藏输入界面
+                    document.getElementById('waitingScreen').innerHTML = '<div class="loading-spinner"></div><h2>正在连接...</h2>';
+                    
+                    // 开始初始化RTC
+                    await this.initRTC();
+                    
+                } catch (error) {
+                    console.error('手动加入失败:', error);
+                    this.showError(error.message);
+                }
+            }
+            
+            async initRTC() {
+                try {
+                    console.log('开始初始化RTC...');
+                    
+                    // 等待SDK加载完成
+                    await loadSDKWithRetry();
+                    
+                    // 检查SDK是否正确加载（按照官方示例）
+                    if (typeof DingRTC === 'undefined' || !DingRTC.default) {
+                        throw new Error('SDK加载失败，未能找到DingRTC对象');
+                    }
+                    
+                    // 使用官方标准方式
+                    const RtcEngine = DingRTC.default;
+                    console.log('RtcEngine类型:', typeof RtcEngine);
+                    
+                    // 检查系统支持（按照官方示例）
+                    if (!RtcEngine.checkSystemRequirements()) {
+                        throw new Error('当前环境不支持RTC通信，请检查URL协议是否为https或使用最新版Chrome浏览器');
+                    }
+                    
+                    // 创建RTC客户端（按照官方示例）
+                    console.log('创建RTC客户端...');
+                    this.mediaEngine = RtcEngine.createClient();
+                    console.log('RTC客户端创建成功');
+                    
+                    // 创建tracksl（按照官方示例）
+                    if (this.mode === 'video') {
+                        console.log('创建音视频tracks...');
+                        const tracks = await RtcEngine.createMicrophoneAndCameraTracks(
+                            { dimension: 'VD_640x480', frameRate: 15 }, 
+                            {}
+                        );
+                        this.cameraTrack = tracks[0];
+                        this.micTrack = tracks[1];
+                        console.log('音视频tracks创建成功');
+                    } else {
+                        console.log('创建音频track...');
+                        this.micTrack = await RtcEngine.createMicrophoneAudioTrack();
+                        console.log('音频track创建成功');
+                    }
+                    
+                    console.log('RTC引擎初始化成功');
+                    await this.joinSession();
+                    
+                } catch (error) {
+                    console.error('RTC初始化错误:', error);
+                    this.showError('初始化失败: ' + error.message);
+                }
+            }
+            
+            setupRTCEvents() {
+                // 监听远程用户加入
+                this.mediaEngine.on('user-published', async (user, mediaType) => {
+                    console.log(`远程用户发布: ${user.userId}, 媒体类型: ${mediaType}`);
+                    
+                    try {
+                        await this.mediaEngine.subscribe(user, mediaType);
+                        
+                        if (mediaType === 'video') {
+                            // 确保视频模式可见
+                            document.getElementById('videoMode').classList.remove('hidden');
+                            
+                            const remoteVideoEl = document.getElementById('remoteVideo');
+                            if (remoteVideoEl && user.videoTrack) {
+                                user.videoTrack.play(remoteVideoEl);
+                                console.log('远程视频播放成功');
+                            }
+                        }
+                        if (mediaType === 'audio') {
+                            if (user.audioTrack) {
+                                user.audioTrack.play();
+                                console.log('远程音频播放成功');
+                            }
+                        }
+                        
+                        document.getElementById('connectionStatus').textContent = '已连接';
+                    } catch (error) {
+                        console.error('订阅远程流失败:', error);
+                    }
+                });
+                
+                // 监听远程用户离开
+                this.mediaEngine.on('user-unpublished', (user, mediaType) => {
+                    console.log(`远程用户取消发布: ${user.userId}, 媒体类型: ${mediaType}`);
+                    
+                    if (mediaType === 'video') {
+                        const remoteVideo = document.getElementById('remoteVideo');
+                        if (remoteVideo) {
+                            remoteVideo.srcObject = null;
+                        }
+                    }
+                });
+                
+                // 监听连接状态
+                this.mediaEngine.on('connection-state-change', (curState, revState) => {
+                    console.log('连接状态变化:', curState);
+                    if (curState === 'CONNECTED') {
+                        document.getElementById('connectionStatus').textContent = '已连接';
+                    } else if (curState === 'DISCONNECTED') {
+                        document.getElementById('connectionStatus').textContent = '连接断开';
+                    }
+                });
+                
+                // 监听用户加入
+                this.mediaEngine.on('user-joined', (user) => {
+                    console.log(`用户加入: ${user.userId}`);
+                });
+                
+                // 监听用户离开
+                this.mediaEngine.on('user-left', (user) => {
+                    console.log(`用户离开: ${user.userId}`);
+                });
+            }
+            
+            initEvents() {
+                // 按照官方示例设置事件监听
+                this.mediaEngine.on('user-joined', (user) => {
+                    console.log(`用户加入: ${user.userName || user.uid}`);
+                    document.getElementById('connectionStatus').textContent = `已连接: ${user.userName || user.uid}`;
+                });
+                
+                this.mediaEngine.on('user-published', (user, mediaType, auxiliary) => {
+                    console.log(`用户发布: ${user.userName || user.uid}, 媒体类型: ${mediaType}`);
+                    if (mediaType === 'video') {
+                        this.mediaEngine.subscribe(user.uid, 'video', auxiliary).then((track) => {
+                            const remoteVideoEl = document.getElementById('remoteVideo');
+                            track.play(remoteVideoEl);
+                            console.log('远程视频订阅成功');
+                        }).catch(error => {
+                            console.error('远程视频订阅失败:', error);
+                        });
+                    }
+                });
+                
+                this.mediaEngine.on('user-unpublished', (user, mediaType) => {
+                    console.log(`用户取消发布: ${user.userName || user.uid}, 媒体类型: ${mediaType}`);
+                });
+                
+                this.mediaEngine.on('user-left', (user) => {
+                    console.log(`用户离开: ${user.userName || user.uid}`);
+                    document.getElementById('connectionStatus').textContent = '等待对方加入...';
+                });
+                
+                this.mediaEngine.on('connection-state-change', (newState, prevState, reason) => {
+                    console.log(`连接状态变化: ${prevState} -> ${newState}, 原因: ${reason || 'N/A'}`);
+                });
+            }
+            
+            async joinSession() {
+                try {
+                    console.log('开始加入会话...');
+                    
+                    // 本地摄像头预览（按照官方示例）
+                    if (this.mode === 'video' && this.cameraTrack) {
+                        const localVideoEl = document.getElementById('localVideo');
+                        this.cameraTrack.play(localVideoEl);
+                        document.getElementById('videoMode').classList.remove('hidden');
+                        console.log('本地视频预览启动成功');
+                    } else {
+                        document.getElementById('audioMode').classList.remove('hidden');
+                    }
+                    
+                    // 构建鉴权信息（按照官方示例格式）
+                    const authInfo = {
+                        appId: this.appId,
+                        uid: this.userId,
+                        token: this.token,
+                        userName: this.userId,
+                        channel: this.sessionId
+                    };
+                    
+                    console.log('鉴权信息:', {
+                        appId: this.appId,
+                        uid: this.userId,
+                        channel: this.sessionId,
+                        tokenLength: this.token.length,
+                        userName: this.userId
+                    });
+                    
+                    // 使用官方API加入房间（按照vanillaVersion.html示例）
+                    await this.mediaEngine.join(authInfo);
+                    console.log('会话加入成功');
+                    
+                    // 加入成功后设置事件监听（按照官方示例）
+                    this.initEvents();
+                    
+                    // 检查当前房间中的用户
+                    console.log('当前房间中的远程用户数量:', this.mediaEngine.remoteUsers.length);
+                    if (this.mediaEngine.remoteUsers.length > 0) {
+                        const firstUser = this.mediaEngine.remoteUsers[0];
+                        console.log('发现已存在的用户:', firstUser.userName || firstUser.uid);
+                        document.getElementById('connectionStatus').textContent = `已连接: ${firstUser.userName || firstUser.uid}`;
+                    }
+                    
+                    // 发布本地流（按照官方示例）
+                    const tracksToPublish = [];
+                    if (this.micTrack) tracksToPublish.push(this.micTrack);
+                    if (this.cameraTrack) tracksToPublish.push(this.cameraTrack);
+                    
+                    if (tracksToPublish.length > 0) {
+                        await this.mediaEngine.publish(tracksToPublish);
+                        console.log('本地流发布成功');
+                    }
+                    
+                    // 订阅已发布到房间的远端流（按照官方示例）
+                    const subParams = [{ uid: 'mcu', mediaType: 'audio', auxiliary: false }];
+                    for (const user of this.mediaEngine.remoteUsers) {
+                        if (user.hasAuxiliary) {
+                            subParams.push({ uid: user.userId, mediaType: 'video', auxiliary: true });
+                        }
+                        if (user.hasVideo) {
+                            subParams.push({ uid: user.userId, mediaType: 'video', auxiliary: false });
+                        }
+                    }
+                    
+                    if (subParams.length > 0) {
+                        try {
+                            const batchSubscribeResult = await this.mediaEngine.batchSubscribe(subParams);
+                            for (const { error, track, uid, auxiliary } of batchSubscribeResult) {
+                                if (error) {
+                                    console.error(`订阅${uid} ${auxiliary ? 'screenShare' : 'camera'} 失败:`, error.message);
+                                    continue;
+                                }
+                                if (track.trackMediaType === 'audio') {
+                                    track.play();
+                                    console.log('音频合流订阅成功');
+                                } else {
+                                    const remoteVideoEl = document.getElementById('remoteVideo');
+                                    track.play(remoteVideoEl);
+                                    console.log(`远程视频${uid}订阅成功`);
+                                }
+                            }
+                        } catch (error) {
+                            console.error('批量订阅失败:', error);
+                        }
+                    }
+                    
+                    // 成功后隐藏等待界面
+                    document.getElementById('waitingScreen').classList.add('hidden');
+                    document.getElementById('connectionStatus').textContent = '等待对方加入...';
+                    
+                } catch (error) {
+                    console.error('加入会话错误:', error);
+                    this.showError('加入会话失败: ' + error.message);
+                }
+            }
+            
+            showError(message) {
+                document.getElementById('errorMessage').textContent = message;
+                document.getElementById('errorScreen').classList.remove('hidden');
+                document.getElementById('waitingScreen').classList.add('hidden');
+            }
+            
+            // 标准化频道ID格式
+            normalizeChannelId(channelId) {
+                if (!channelId) return null;
+                
+                // 移除无效字符，只保留字母、数字、下划线、连字符
+                let normalized = channelId.replace(/[^a-zA-Z0-9_-]/g, '_');
+                
+                // 确保长度在有效范围内（1-64字符）
+                if (normalized.length > 64) {
+                    normalized = normalized.substring(0, 64);
+                }
+                
+                // 确保不为空
+                if (normalized.length === 0) {
+                    normalized = 'channel_' + Date.now();
+                }
+                
+                return normalized;
+            }
+            
+            // 验证频道ID格式
+            validateChannelId(channelId) {
+                if (!channelId || typeof channelId !== 'string') {
+                    console.error('频道ID为空或格式错误');
+                    return false;
+                }
+                
+                // 检查长度
+                if (channelId.length < 1 || channelId.length > 64) {
+                    console.error('频道ID长度无效:', channelId.length);
+                    return false;
+                }
+                
+                // 检查字符
+                if (!/^[a-zA-Z0-9_-]+$/.test(channelId)) {
+                    console.error('频道ID包含无效字符:', channelId);
+                    return false;
+                }
+                
+                return true;
+            }
+            
+            // 生成简单的临时token用于测试环境
+            generateTempToken() {
+                // 注意：这只是一个简单的测试token，生产环境不可使用
+                // 生产环境必须使用服务器生成的有效token
+                const timestamp = Math.floor(Date.now() / 1000);
+                const expireTime = timestamp + 3600; // 1小时后过期
+                
+                // 使用简单的base64编码来模拟token格式
+                const tokenData = {
+                    appId: this.appId,
+                    channelId: this.sessionId,
+                    userId: this.userId,
+                    expireTime: expireTime
+                };
+                
+                try {
+                    return btoa(JSON.stringify(tokenData));
+                } catch (error) {
+                    console.warn('生成临时token失败:', error);
+                    return 'temp_token_' + timestamp;
+                }
+            }
+        }
+        
+        let player;
+        
+        // 测试面板功能
+        function showTestPanel() {
+            document.getElementById('testPanel').classList.remove('hidden');
+            initTestPanel();
+        }
+        
+        function closeTestPanel() {
+            document.getElementById('testPanel').classList.add('hidden');
+        }
+        
+        function initTestPanel() {
+            checkSDKStatus();
+            parseCurrentParams();
+            checkConfigStatus();
+            
+            // 设置控制台日志拦截
+            const originalLog = console.log;
+            const originalWarn = console.warn;
+            const originalError = console.error;
+            
+            const testConsole = document.getElementById('testConsole');
+            
+            function addToTestConsole(level, message) {
+                const timestamp = new Date().toLocaleTimeString();
+                const logEntry = document.createElement('div');
+                logEntry.style.color = level === 'error' ? '#ff6b6b' : level === 'warn' ? '#ffa726' : '#4fc3f7';
+                logEntry.textContent = `[${timestamp}] ${level.toUpperCase()}: ${message}`;
+                testConsole.appendChild(logEntry);
+                testConsole.scrollTop = testConsole.scrollHeight;
+            }
+            
+            console.log = function(...args) {
+                originalLog.apply(console, args);
+                addToTestConsole('info', args.join(' '));
+            };
+            
+            console.warn = function(...args) {
+                originalWarn.apply(console, args);
+                addToTestConsole('warn', args.join(' '));
+            };
+            
+            console.error = function(...args) {
+                originalError.apply(console, args);
+                addToTestConsole('error', args.join(' '));
+            };
+        }
+        
+        function checkSDKStatus() {
+            const statusEl = document.getElementById('testSdkStatus');
+            
+            if (typeof DingRTC !== 'undefined' && DingRTC.default) {
+                statusEl.innerHTML = `✅ SDK加载成功<br>版本: ${DingRTC.VERSION || '未知'}<br>类型: ${typeof DingRTC}`;
+                statusEl.style.background = 'rgba(76, 175, 80, 0.3)';
+            } else {
+                statusEl.innerHTML = '❌ SDK未加载';
+                statusEl.style.background = 'rgba(244, 67, 54, 0.3)';
+            }
+        }
+        
+        function parseCurrentParams() {
+            const statusEl = document.getElementById('testParamsStatus');
+            
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                
+                const theme = urlParams.get('theme');
+                const lang = urlParams.get('lang');
+                const source = urlParams.get('source');
+                const ref = urlParams.get('ref');
+                const token = urlParams.get('token');
+                
+                if (theme && lang && source && ref) {
+                    const roomId = atob(theme) + atob(lang);
+                    const userId = atob(source) + atob(ref);
+                    
+                    statusEl.innerHTML = `✅ 参数解析成功<br>
+                        房间ID: ${roomId}<br>
+                        用户ID: ${userId}<br>
+                        Token: ${token ? '✅ 已提供' : '❌ 未提供'}<br>
+                        模式: ${urlParams.get('debug') === 'false' ? '视频' : '音频'}`;
+                    statusEl.style.background = 'rgba(76, 175, 80, 0.3)';
+                } else {
+                    statusEl.innerHTML = '❌ 缺少必要参数 (theme, lang, source, ref)';
+                    statusEl.style.background = 'rgba(244, 67, 54, 0.3)';
+                }
+            } catch (error) {
+                statusEl.innerHTML = `❌ 解析失败: ${error.message}`;
+                statusEl.style.background = 'rgba(244, 67, 54, 0.3)';
+            }
+        }
+        
+        async function checkConfigStatus() {
+            const statusEl = document.getElementById('testConfigStatus');
+            
+            try {
+                const appId = await window.ALIYUN_CONFIG.getAppId();
+                const token = window.ALIYUN_CONFIG.getToken();
+                
+                statusEl.innerHTML = `
+                    AppID: ${appId ? '✅ 已配置' : '❌ 未配置'}<br>
+                    Token: ${token ? '✅ 已配置' : '❌ 未配置'}<br>
+                    本地存储: ${localStorage.getItem('media_app_id') ? '✅ 正常' : '❌ 无数据'}`;
+                
+                if (appId && token) {
+                    statusEl.style.background = 'rgba(76, 175, 80, 0.3)';
+                } else {
+                    statusEl.style.background = 'rgba(255, 152, 0, 0.3)';
+                }
+            } catch (error) {
+                statusEl.innerHTML = `❌ 检查失败: ${error.message}`;
+                statusEl.style.background = 'rgba(244, 67, 54, 0.3)';
+            }
+        }
+        
+        function clearTestConsole() {
+            document.getElementById('testConsole').innerHTML = '日志已清空...';
+        }
+        
+        window.onload = async () => {
+            console.log('页面加载完成，手动输入模式...');
+            
+            try {
+                // 首先加载SDK
+                console.log('开始加载SDK...');
+                await loadSDKWithRetry();
+                
+                console.log('SDK加载成功，创建应用实例...');
+                // 然后创建应用实例
+                player = new MediaPlayer();
+            } catch (error) {
+                console.error('初始化失败:', error);
+                
+                // 显示错误信息
+                const errorEl = document.getElementById('errorMessage');
+                const detailsEl = document.getElementById('errorDetails');
+                
+                errorEl.textContent = 'SDK加载失败';
+                detailsEl.innerHTML = `
+                    <div style="text-align: left; margin-top: 10px;">
+                        <strong>错误详情:</strong> ${error.message}<br><br>
+                        
+                        <strong>可能的解决方案:</strong><br>
+                        1. 检查网络连接是否正常<br>
+                        2. 尝试刷新页面<br>
+                        3. 使用Chrome或Firefox浏览器<br>
+                        4. 检查防火墙设置
+                    </div>
+                `;
+                
+                document.getElementById('errorScreen').classList.remove('hidden');
+                document.getElementById('waitingScreen').classList.add('hidden');
+            }
+        };
+        
+        // 手动加入会话
+        function manualJoinSession() {
+            if (player) {
+                player.manualJoinSession();
+            }
+        }
+        
+        // 保存手动输入的设置
+        function saveManualInputs() {
+            try {
+                const settings = {
+                    appId: document.getElementById('manualAppId').value.trim(),
+                    channelId: document.getElementById('manualChannelId').value.trim(),
+                    userId: document.getElementById('manualUserId').value.trim(),
+                    token: document.getElementById('manualToken').value.trim(),
+                    mode: document.getElementById('manualMode').value
+                };
+                
+                localStorage.setItem('manual_rtc_settings', JSON.stringify(settings));
+                alert('设置已保存！');
+            } catch (error) {
+                alert('保存失败: ' + error.message);
+            }
+        }
+        
+        // 加载保存的设置
+        function loadSavedInputs() {
+            try {
+                const saved = localStorage.getItem('manual_rtc_settings');
+                if (saved) {
+                    const settings = JSON.parse(saved);
+                    document.getElementById('manualAppId').value = settings.appId || '';
+                    document.getElementById('manualChannelId').value = settings.channelId || '';
+                    document.getElementById('manualUserId').value = settings.userId || '';
+                    document.getElementById('manualToken').value = settings.token || '';
+                    document.getElementById('manualMode').value = settings.mode || 'video';
+                    alert('设置已加载！');
+                } else {
+                    alert('没有保存的设置');
+                }
+            } catch (error) {
+                alert('加载失败: ' + error.message);
+            }
+        }
+        
+        // 控制按钮事件
+        document.getElementById('muteBtn').onclick = () => {
+            if (player && player.micTrack) {
+                const btn = document.getElementById('muteBtn');
+                if (player.micTrack.enabled) {
+                    player.micTrack.setEnabled(false);
+                    btn.textContent = '🔇';
+                    btn.style.background = '#e74c3c';
+                } else {
+                    player.micTrack.setEnabled(true);
+                    btn.textContent = '🎤';
+                    btn.style.background = 'rgba(255,255,255,0.15)';
+                }
+            }
+        };
+        
+        document.getElementById('videoBtn').onclick = () => {
+            if (player && player.cameraTrack) {
+                const btn = document.getElementById('videoBtn');
+                if (player.cameraTrack.enabled) {
+                    player.cameraTrack.setEnabled(false);
+                    btn.textContent = '📹';
+                    btn.style.background = '#e74c3c';
+                } else {
+                    player.cameraTrack.setEnabled(true);
+                    btn.textContent = '📹';
+                    btn.style.background = 'rgba(255,255,255,0.15)';
+                }
+            }
+        };
+        
+        document.getElementById('hangupBtn').onclick = async () => {
+            if (player && player.mediaEngine) {
+                // 清理本地流
+                if (player.cameraTrack) {
+                    player.cameraTrack.stop();
+                    player.cameraTrack.close();
+                }
+                if (player.micTrack) {
+                    player.micTrack.stop();
+                    player.micTrack.close();
+                }
+                
+                // 离开房间
+                await player.mediaEngine.leave();
+            }
+            
+            // 关闭窗口或返回上一页
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.close();
+            }
+        };
+    </script>
+</body>
+</html>
