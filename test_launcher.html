@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>媒体应用测试</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh; display: flex; align-items: center; justify-content: center;
+            color: white;
+        }
+        .container {
+            background: rgba(255,255,255,0.1); padding: 40px; border-radius: 20px;
+            backdrop-filter: blur(20px); max-width: 600px; width: 90%;
+            text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        h1 { margin-bottom: 20px; font-size: 32px; }
+        .subtitle { margin-bottom: 40px; opacity: 0.8; font-size: 18px; }
+        .test-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px; margin-bottom: 30px;
+        }
+        .test-card {
+            background: rgba(255,255,255,0.1); padding: 20px; border-radius: 15px;
+            cursor: pointer; transition: transform 0.3s, background 0.3s;
+            border: 2px solid transparent;
+        }
+        .test-card:hover {
+            transform: translateY(-5px); background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.3);
+        }
+        .test-icon { font-size: 48px; margin-bottom: 15px; }
+        .test-title { font-size: 20px; font-weight: bold; margin-bottom: 10px; }
+        .test-desc { font-size: 14px; opacity: 0.8; }
+        .url-input {
+            width: 100%; padding: 15px; border: none; border-radius: 10px;
+            background: rgba(255,255,255,0.9); color: #333; font-size: 16px;
+            margin: 20px 0;
+        }
+        .btn {
+            background: #4CAF50; color: white; border: none; padding: 15px 30px;
+            border-radius: 10px; font-size: 16px; cursor: pointer; margin: 10px;
+            transition: background 0.3s;
+        }
+        .btn:hover { background: #45a049; }
+        .btn.secondary { background: #2196F3; }
+        .btn.secondary:hover { background: #1976D2; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 媒体应用测试</h1>
+        <p class="subtitle">选择测试模式或输入自定义URL</p>
+        
+        <div class="test-grid">
+            <div class="test-card" onclick="quickTest()">
+                <div class="test-icon">⚡</div>
+                <div class="test-title">快速测试</div>
+                <div class="test-desc">使用默认参数进行基本功能测试</div>
+            </div>
+            
+            <div class="test-card" onclick="debugTest()">
+                <div class="test-icon">🔍</div>
+                <div class="test-title">调试模式</div>
+                <div class="test-desc">启用详细日志和测试面板</div>
+            </div>
+            
+            <div class="test-card" onclick="tokenTest()">
+                <div class="test-icon">🔑</div>
+                <div class="test-title">Token测试</div>
+                <div class="test-desc">测试Token配置和验证</div>
+            </div>
+            
+            <div class="test-card" onclick="networkTest()">
+                <div class="test-icon">🌐</div>
+                <div class="test-title">网络诊断</div>
+                <div class="test-desc">检查SDK加载和网络连接</div>
+            </div>
+        </div>
+        
+        <input type="text" class="url-input" id="customUrl" 
+               placeholder="或输入自定义测试URL..." 
+               value="main.html?resolution=1280x720&quality=hd&fps=30&theme=cm9vbV8x&lang=NjkwOTY5&source=dXNlcl8x&ref=NjkwOTY5&version=1.2.3&debug=false&timestamp=1234567890&token=test_token_here">
+        
+        <div>
+            <button class="btn" onclick="testCustomUrl()">测试自定义URL</button>
+            <button class="btn secondary" onclick="openMainPage()">打开主页面</button>
+        </div>
+        
+        <div style="margin-top: 30px; font-size: 12px; opacity: 0.7;">
+            💡 提示：测试模式会在页面中显示调试信息和状态面板
+        </div>
+    </div>
+
+    <script>
+        function quickTest() {
+            const testUrl = 'main.html?test=true&resolution=1280x720&quality=hd&fps=30&theme=cm9vbV8x&lang=NjkwOTY5&source=dXNlcl8x&ref=NjkwOTY5&version=1.2.3&debug=false&timestamp=' + Date.now();
+            window.open(testUrl, '_blank');
+        }
+        
+        function debugTest() {
+            const testUrl = 'main.html?test=true&debug=true&resolution=1280x720&quality=hd&fps=30&theme=cm9vbV8x&lang=NjkwOTY5&source=dXNlcl8x&ref=NjkwOTY5&version=1.2.3&timestamp=' + Date.now();
+            window.open(testUrl, '_blank');
+        }
+        
+        function tokenTest() {
+            const token = prompt('请输入测试Token:', 'your_test_token_here');
+            if (token) {
+                const testUrl = `main.html?test=true&resolution=1280x720&quality=hd&fps=30&theme=cm9vbV8x&lang=NjkwOTY5&source=dXNlcl8x&ref=NjkwOTY5&version=1.2.3&debug=false&timestamp=${Date.now()}&token=${encodeURIComponent(token)}`;
+                window.open(testUrl, '_blank');
+            }
+        }
+        
+        function networkTest() {
+            const testUrl = 'main.html?test=true&network_check=true&timestamp=' + Date.now();
+            window.open(testUrl, '_blank');
+        }
+        
+        function testCustomUrl() {
+            const customUrl = document.getElementById('customUrl').value;
+            if (customUrl) {
+                const url = customUrl.includes('?') ? customUrl + '&test=true' : customUrl + '?test=true';
+                window.open(url, '_blank');
+            } else {
+                alert('请输入自定义URL');
+            }
+        }
+        
+        function openMainPage() {
+            window.open('main.html', '_blank');
+        }
+    </script>
+</body>
+</html>
