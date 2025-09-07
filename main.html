@@ -226,7 +226,7 @@
                     
                     this.updateStatus('正在初始化...');
                     
-                    // 按照官方示例检查SDK
+                    // 完全按照官方示例检查SDK
                     console.log('🔍 检查DingRTC SDK:', typeof DingRTC);
                     
                     if (!DingRTC) {
@@ -235,14 +235,21 @@
                     
                     // 按照官方示例获取RtcEngine
                     const RtcEngine = DingRTC.default;
-                    if (!RtcEngine || !RtcEngine.createClient) {
-                        throw new Error('DingRTC.default.createClient 方法不存在');
+                    if (!RtcEngine) {
+                        throw new Error('DingRTC.default 不存在');
                     }
                     
                     console.log('✅ DingRTC SDK可用');
                     
-                    // 创建客户端（按照官方示例）
-                    this.client = RtcEngine.createClient();
+                    // 完全按照官方示例创建客户端
+                    try {
+                        this.client = RtcEngine.createClient();
+                        console.log('✅ 客户端创建成功');
+                    } catch (error) {
+                        console.error('❌ 客户端创建失败:', error);
+                        throw new Error('请使用官网最新Web SDK文件');
+                    }
+                    
                     this.setupRTCEvents();
                     
                     // 创建本地流
