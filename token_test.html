@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token测试工具</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        button { background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #45a049; }
+        .result { background: #f9f9f9; padding: 15px; border-radius: 4px; margin-top: 20px; }
+        .error { background: #ffebee; color: #c62828; padding: 10px; border-radius: 4px; margin-top: 10px; }
+        .success { background: #e8f5e8; color: #2e7d2e; padding: 10px; border-radius: 4px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 RTC Token测试工具</h1>
+        
+        <div class="form-group">
+            <label>AppID:</label>
+            <input type="text" id="appIdInput" placeholder="输入您的阿里云RTC AppID">
+        </div>
+        
+        <div class="form-group">
+            <label>AppKey (用于生成Token):</label>
+            <input type="text" id="appKeyInput" placeholder="输入您的阿里云RTC AppKey">
+        </div>
+        
+        <div class="form-group">
+            <label>频道ID:</label>
+            <input type="text" id="channelIdInput" placeholder="输入房间/频道ID">
+        </div>
+        
+        <div class="form-group">
+            <label>用户ID:</label>
+            <input type="text" id="userIdInput" placeholder="输入用户ID">
+        </div>
+        
+        <button onclick="generateToken()">生成Token</button>
+        <button onclick="testConnection()">测试连接</button>
+        
+        <div id="result" class="result" style="display: none;">
+            <h3>生成的Token:</h3>
+            <textarea id="tokenOutput" rows="5" readonly></textarea>
+            <br><br>
+            <button onclick="copyToken()">复制Token</button>
+            <button onclick="openTestPage()">在新页面测试</button>
+        </div>
+        
+        <div id="message"></div>
+    </div>
+
+    <script>
+        // 简化版Token生成器（仅用于测试）
+        function generateToken() {
+            const appId = document.getElementById('appIdInput').value.trim();
+            const appKey = document.getElementById('appKeyInput').value.trim();
+            const channelId = document.getElementById('channelIdInput').value.trim();
+            const userId = document.getElementById('userIdInput').value.trim();
+            
+            if (!appId || !appKey || !channelId || !userId) {
+                showMessage('请填写所有必填字段', 'error');
+                return;
+            }
+            
+            try {
+                // 生成简单的测试Token（注意：这不是真正的阿里云Token格式）
+                const timestamp = Math.floor(Date.now() / 1000);
+                const expireTime = timestamp + 3600; // 1小时后过期
+                
+                const tokenData = {
+                    appId: appId,
+                    channelId: channelId,
+                    userId: userId,
+                    expireTime: expireTime,
+                    timestamp: timestamp,
+                    // 简单的签名（实际生产环境需要使用正确的签名算法）
+                    signature: btoa(appId + channelId + userId + timestamp + appKey).substring(0, 32)
+                };
+                
+                const token = btoa(JSON.stringify(tokenData));
+                
+                document.getElementById('tokenOutput').value = token;
+                document.getElementById('result').style.display = 'block';
+                
+                showMessage('Token生成成功！（注意：这是测试Token，生产环境请使用服务端生成）', 'success');
+                
+            } catch (error) {
+                showMessage('Token生成失败: ' + error.message, 'error');
+            }
+        }
+        
+        function copyToken() {
+            const tokenOutput = document.getElementById('tokenOutput');
+            tokenOutput.select();
+            document.execCommand('copy');
+            showMessage('Token已复制到剪贴板', 'success');
+        }
+        
+        function openTestPage() {
+            const appId = document.getElementById('appIdInput').value.trim();
+            const channelId = document.getElementById('channelIdInput').value.trim();
+            const userId = document.getElementById('userIdInput').value.trim();
+            const token = document.getElementById('tokenOutput').value;
+            
+            if (!token) {
+                showMessage('请先生成Token', 'error');
+                return;
+            }
+            
+            // 构建测试URL
+            const testUrl = `main.html?` +
+                `resolution=1280x720&quality=hd&fps=30&` +
+                `theme=${btoa(channelId.substring(0, 10) || channelId)}&` +
+                `lang=${btoa(channelId.substring(10) || '_default')}&` +
+                `source=${btoa(userId.substring(0, 8) || userId)}&` +
+                `ref=${btoa(userId.substring(8) || '_def')}&` +
+                `version=3.6.${btoa(appId).replace(/=/g, '')}&` +
+                `debug=false&` +
+                `timestamp=${Date.now()}&` +
+                `token=${encodeURIComponent(token)}`;
+            
+            window.open(testUrl, '_blank');
+        }
+        
+        function testConnection() {
+            const appId = document.getElementById('appIdInput').value.trim();
+            
+            if (!appId) {
+                showMessage('请输入AppID', 'error');
+                return;
+            }
+            
+            showMessage('正在测试连接...', 'info');
+            
+            // 测试阿里云RTC SDK加载
+            const script = document.createElement('script');
+            script.src = 'https://dingrtc.oss-cn-zhangjiakou.aliyuncs.com/sdk/web/index.umd.3.6.0.js';
+            script.onload = () => {
+                if (typeof DingRTC !== 'undefined') {
+                    showMessage('✅ RTC SDK加载成功', 'success');
+                } else {
+                    showMessage('❌ RTC SDK加载失败', 'error');
+                }
+            };
+            script.onerror = () => {
+                showMessage('❌ 无法加载RTC SDK，请检查网络连接', 'error');
+            };
+            document.head.appendChild(script);
+        }
+        
+        function showMessage(text, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = text;
+            messageDiv.className = type;
+        }
+        
+        // 页面加载时填入示例数据
+        window.onload = () => {
+            document.getElementById('channelIdInput').value = 'room' + Date.now();
+            document.getElementById('userIdInput').value = 'user_' + Date.now();
+        };
+    </script>
+</body>
+</html>
