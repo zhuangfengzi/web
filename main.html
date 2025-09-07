@@ -503,21 +503,44 @@
                     this.token = document.getElementById('manualToken').value.trim();
                     this.mode = document.getElementById('manualMode').value;
                     
-                    // 验证参数
-                    if (!this.appId) {
-                        throw new Error('请输入AppID');
+                    // 验证参数 - 详细检查每个必填参数
+                    if (!this.appId || this.appId === '') {
+                        throw new Error('请输入AppID（应用标识）');
                     }
-                    if (!this.sessionId) {
-                        throw new Error('请输入频道ID');
+                    if (!this.sessionId || this.sessionId === '') {
+                        throw new Error('请输入频道ID（房间ID）');
                     }
-                    if (!this.userId) {
+                    if (!this.userId || this.userId === '') {
                         throw new Error('请输入用户ID');
                     }
-                    if (!this.token) {
-                        throw new Error('请输入Token');
+                    if (!this.token || this.token === '') {
+                        throw new Error('请输入Token（访问令牌）');
                     }
                     
-                    console.log('手动输入的参数:', {
+                    // 验证AppID格式（只能包含字母、数字、下划线）
+                    if (!/^[a-zA-Z0-9_]+$/.test(this.appId)) {
+                        throw new Error('AppID格式无效，只能包含字母、数字、下划线');
+                    }
+                    
+                    // 验证频道ID格式（只能包含字母、数字、下划线、连字符）
+                    if (!/^[a-zA-Z0-9_-]+$/.test(this.sessionId)) {
+                        throw new Error('频道ID格式无效，只能包含字母、数字、下划线、连字符');
+                    }
+                    
+                    // 验证用户ID格式（只能包含字母、数字、下划线、连字符）
+                    if (!/^[a-zA-Z0-9_-]+$/.test(this.userId)) {
+                        throw new Error('用户ID格式无效，只能包含字母、数字、下划线、连字符');
+                    }
+                    
+                    // 验证长度
+                    if (this.sessionId.length > 64) {
+                        throw new Error('频道ID长度不能超过64个字符');
+                    }
+                    if (this.userId.length > 64) {
+                        throw new Error('用户ID长度不能超过64个字符');
+                    }
+                    
+                    console.log('手动输入的参数验证通过:', {
                         appId: this.appId,
                         sessionId: this.sessionId,
                         userId: this.userId,
@@ -639,14 +662,8 @@
                 try {
                     console.log('开始加入会话...');
                     
-                    // 验证和标准化频道ID格式
-                    this.sessionId = this.normalizeChannelId(this.sessionId);
-                    console.log('标准化后的频道ID:', this.sessionId);
-                    
-                    // 验证频道ID格式
-                    if (!this.validateChannelId(this.sessionId)) {
-                        throw new Error('频道ID格式无效: ' + this.sessionId);
-                    }
+                    // 直接使用已验证的频道ID，不再进行标准化处理
+                    console.log('使用频道ID:', this.sessionId);
                     
                     // 获取媒体流，分辨率默认720p
                     if (this.mode === 'video') {
@@ -685,7 +702,7 @@
                     }
                     
                     // 加入会话
-                    console.log('加入会话:', this.appId, this.sessionId, this.userId);
+                    console.log('加入会话参数:', this.appId, this.sessionId, this.userId);
                     
                     // 获取访问凭证
                     console.log('使用手动输入的Token:', this.token ? '有效(' + this.token.length + '字符)' : '未设置');
