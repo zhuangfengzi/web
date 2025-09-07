@@ -366,14 +366,37 @@
             init() {
                 console.log('手动输入模式初始化...');
                 this.setupUI();
-                this.fillExampleData();
-            }
-            
-            // 不填入示例数据，让用户手动输入
-            fillExampleData() {
-                // 不再自动填入示例数据，保持输入框为空
+                // 不再调用fillExampleData，也不解析URL参数
+                // 保持输入框为空，等待用户手动输入
+                this.clearOldData();
                 console.log('初始化完成，等待用户手动输入参数...');
             }
+            
+            // 清除任何可能的缓存数据和初始值
+            clearOldData() {
+                // 确保所有输入框都为空
+                const inputs = [
+                    'manualAppId',
+                    'manualChannelId', 
+                    'manualUserId',
+                    'manualToken'
+                ];
+                
+                inputs.forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.value = '';
+                    }
+                });
+                
+                // 设置默认模式
+                const modeSelect = document.getElementById('manualMode');
+                if (modeSelect) {
+                    modeSelect.value = 'video';
+                }
+            }
+            
+
             
             parseParams() {
                 const params = new URLSearchParams(window.location.search);
@@ -573,9 +596,25 @@
                     
                     console.log('使用AppID:', this.appId);
                     
-                    // 创建RTC客户端（使用正确的官方API）
+                    // 创建RTC客户端（使用正确的阿里云RTC API）
                     console.log('创建RTC客户端...');
-                    this.mediaEngine = new AliRtcEngine();
+                    console.log('AliRtcEngine类型:', typeof AliRtcEngine);
+                    console.log('AliRtcEngine对象:', AliRtcEngine);
+                    
+                    // 阿里云RTC SDK使用createClient方法创建客户端，不是构造函数
+                    if (typeof AliRtcEngine.createClient === 'function') {
+                        this.mediaEngine = AliRtcEngine.createClient({
+                            codec: 'h264'
+                        });
+                        console.log('使用createClient方法创建客户端成功');
+                    } else if (typeof AliRtcEngine === 'function') {
+                        this.mediaEngine = AliRtcEngine({
+                            codec: 'h264'
+                        });
+                        console.log('使用函数方式创建客户端成功');
+                    } else {
+                        throw new Error('无法识别的AliRtcEngine类型: ' + typeof AliRtcEngine);
+                    }
                     
                     // 检查系统支持
                     const isSupported = await this.mediaEngine.isSupport();
