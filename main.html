@@ -233,14 +233,16 @@
                         throw new Error('阿里云RTC SDK未加载，请检查网络连接');
                     }
                     
-                    if (!DingRTC.createClient) {
-                        throw new Error('DingRTC.createClient 方法不存在');
+                    // 按照官方示例获取RtcEngine
+                    const RtcEngine = DingRTC.default;
+                    if (!RtcEngine || !RtcEngine.createClient) {
+                        throw new Error('DingRTC.default.createClient 方法不存在');
                     }
                     
                     console.log('✅ DingRTC SDK可用');
                     
                     // 创建客户端（按照官方示例）
-                    this.client = DingRTC.createClient();
+                    this.client = RtcEngine.createClient();
                     this.setupRTCEvents();
                     
                     // 创建本地流
@@ -294,8 +296,9 @@
             async createLocalTracks() {
                 try {
                     // 按照官方示例创建本地流
-                    this.localTracks.audio = await DingRTC.createMicrophoneAudioTrack();
-                    this.localTracks.video = await DingRTC.createCameraVideoTrack();
+                    const RtcEngine = DingRTC.default;
+                    this.localTracks.audio = await RtcEngine.createMicrophoneAudioTrack();
+                    this.localTracks.video = await RtcEngine.createCameraVideoTrack();
                     console.log('✅ 本地音视频流创建成功');
                 } catch (error) {
                     console.error('❌ 创建本地流失败:', error);
