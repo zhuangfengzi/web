@@ -369,13 +369,10 @@
                 this.fillExampleData();
             }
             
-            // 填入示例数据
+            // 不填入示例数据，让用户手动输入
             fillExampleData() {
-                const timestamp = Date.now();
-                document.getElementById('manualChannelId').value = 'room' + timestamp;
-                document.getElementById('manualUserId').value = 'user_' + timestamp;
-                document.getElementById('manualAppId').placeholder = '请输入您的阿里云RTC AppID';
-                document.getElementById('manualToken').placeholder = '请输入您的阿里云RTC Token';
+                // 不再自动填入示例数据，保持输入框为空
+                console.log('初始化完成，等待用户手动输入参数...');
             }
             
             parseParams() {
