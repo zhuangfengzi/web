@@ -4,17 +4,57 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>阿里云RTC通话</title>
-    <script src="https://g.alicdn.com/dingding/dingrtc-sdk/3.6.0/aliyun-webrtc-sdk.js" onerror="console.error('SDK加载失败')"></script>
     <script>
-        // 检查SDK是否加载成功
-        window.addEventListener('load', function() {
-            if (typeof DingRTC === 'undefined') {
-                console.error('❗ DingRTC SDK未加载，可能是网络问题或CDN问题');
-                alert('加载阿里云RTC SDK失败，请检查网络连接或刷新页面重试');
-            } else {
-                console.log('✅ DingRTC SDK加载成功');
+        // 动态加载SDK，支持多个CDN备用
+        function loadSDK() {
+            const sdkUrls = [
+                'https://g.alicdn.com/dingding/dingrtc-sdk/3.6.0/aliyun-webrtc-sdk.js',
+                'https://unpkg.com/@alicloud/webrtc-sdk@3.6.0/dist/aliyun-webrtc-sdk.js',
+                'https://cdn.jsdelivr.net/npm/@alicloud/webrtc-sdk@3.6.0/dist/aliyun-webrtc-sdk.js'
+            ];
+            
+            let currentIndex = 0;
+            
+            function tryLoadSDK() {
+                if (currentIndex >= sdkUrls.length) {
+                    console.error('❌ 所有SDK CDN都加载失败');
+                    alert('无法加载阿里云RTC SDK，请检查网络连接并刷新页面重试');
+                    return;
+                }
+                
+                const script = document.createElement('script');
+                script.src = sdkUrls[currentIndex];
+                
+                script.onload = function() {
+                    console.log(`✅ SDK从 ${sdkUrls[currentIndex]} 加载成功`);
+                    // SDK加载成功后初始化RTC管理器
+                    if (typeof DingRTC !== 'undefined') {
+                        console.log('✅ DingRTC对象可用');
+                        window.rtcManager = new RTCManager();
+                    } else {
+                        console.error('❌ SDK加载但DingRTC对象不可用');
+                        tryNextCDN();
+                    }
+                };
+                
+                script.onerror = function() {
+                    console.error(`❌ SDK从 ${sdkUrls[currentIndex]} 加载失败`);
+                    tryNextCDN();
+                };
+                
+                document.head.appendChild(script);
             }
-        });
+            
+            function tryNextCDN() {
+                currentIndex++;
+                setTimeout(tryLoadSDK, 500); // 等待500ms再尝试下一个CDN
+            }
+            
+            tryLoadSDK();
+        }
+        
+        // 页面加载完成后尝试加载SDK
+        document.addEventListener('DOMContentLoaded', loadSDK);
     </script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -117,6 +157,7 @@
                 this.localTracks = { audio: null, video: null };
                 this.isJoined = false;
                 this.roomParams = null;
+                // 不再在构造函数中立即初始化，等待SDK加载完成
                 this.init();
             }
             
@@ -171,10 +212,15 @@
             async autoJoin() {
                 console.log('🔄 开始自动加入...');
                 
-                // 等待一下确保SDK完全加载
+                // 等待2秒确保SDK完全加载并初始化
                 setTimeout(() => {
+                    if (typeof DingRTC === 'undefined') {
+                        console.error('❌ SDK仍未加载，取消连接');
+                        this.updateStatus('SDK加载失败，无法连接');
+                        return;
+                    }
                     this.joinCall();
-                }, 1000);
+                }, 2000);
             }
             
             setupEventListeners() {
@@ -391,12 +437,6 @@
                 }
             }
         }
-        
-        // 启动应用
-        window.addEventListener('load', () => {
-            console.log('🌟 应用启动');
-            new RTCManager();
-        });
         
         // 页面关闭时清理
         window.addEventListener('beforeunload', () => {
