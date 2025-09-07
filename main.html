@@ -247,18 +247,14 @@
                         // 等待初始化完成
                         await new Promise(resolve => setTimeout(resolve, 1000));
                         
-                        // 检查加载状态
-                        if (typeof window.AliRtcEngine !== 'undefined') {
-                            console.log('媒体库加载成功，使用AliRtcEngine');
-                            resolve();
-                            return;
-                        } else if (typeof DingRTC !== 'undefined' && DingRTC.default) {
-                            console.log('媒体库加载成功，设置AliRtcEngine别名');
+                        // 检查加载状态（按照官方示例）
+                        if (typeof DingRTC !== 'undefined' && DingRTC.default) {
+                            console.log('媒体库加载成功，设置AliRtcEngine兼容别名');
                             window.AliRtcEngine = DingRTC.default;
                             resolve();
                             return;
                         } else {
-                            console.warn(`库加载完成但对象未定义 (${i + 1})`);
+                            console.warn(`库加载完成但DingRTC对象未定义 (${i + 1})`);
                         }
                     } catch (error) {
                         console.warn(`库加载失败 (${i + 1}):`, error.message);
@@ -589,38 +585,24 @@
                     // 等待SDK加载完成
                     await loadSDKWithRetry();
                     
-                    // 检查SDK是否正确加载
-                    if (typeof AliRtcEngine === 'undefined') {
-                        throw new Error('SDK加载失败，未能找到AliRtcEngine对象');
+                    // 检查SDK是否正确加载（按照官方示例）
+                    if (typeof DingRTC === 'undefined' || !DingRTC.default) {
+                        throw new Error('SDK加载失败，未能找到DingRTC对象');
                     }
                     
-                    console.log('使用AppID:', this.appId);
+                    // 使用官方标准方式
+                    const RtcEngine = DingRTC.default;
+                    console.log('RtcEngine类型:', typeof RtcEngine);
                     
-                    // 创建RTC客户端（使用正确的阿里云RTC API）
-                    console.log('创建RTC客户端...');
-                    console.log('AliRtcEngine类型:', typeof AliRtcEngine);
-                    console.log('AliRtcEngine对象:', AliRtcEngine);
-                    
-                    // 阿里云RTC SDK使用createClient方法创建客户端，不是构造函数
-                    if (typeof AliRtcEngine.createClient === 'function') {
-                        this.mediaEngine = AliRtcEngine.createClient({
-                            codec: 'h264'
-                        });
-                        console.log('使用createClient方法创建客户端成功');
-                    } else if (typeof AliRtcEngine === 'function') {
-                        this.mediaEngine = AliRtcEngine({
-                            codec: 'h264'
-                        });
-                        console.log('使用函数方式创建客户端成功');
-                    } else {
-                        throw new Error('无法识别的AliRtcEngine类型: ' + typeof AliRtcEngine);
-                    }
-                    
-                    // 检查系统支持
-                    const isSupported = await this.mediaEngine.isSupport();
-                    if (!isSupported) {
+                    // 检查系统支持（按照官方示例）
+                    if (!RtcEngine.checkSystemRequirements()) {
                         throw new Error('当前环境不支持RTC通信，请检查URL协议是否为https或使用最新版Chrome浏览器');
                     }
+                    
+                    // 创建RTC客户端（按照官方示例）
+                    console.log('创建RTC客户端...');
+                    this.mediaEngine = RtcEngine.createClient();
+                    console.log('RTC客户端创建成功');
                     
                     console.log('RTC引擎创建成功');
                     this.setupRTCEvents();
