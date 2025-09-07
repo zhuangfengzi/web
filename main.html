@@ -698,34 +698,26 @@
                         document.getElementById('audioMode').classList.remove('hidden');
                     }
                     
-                    // 构建鉴权信息（按照官方格式）
+                    // 构建鉴权信息（按照官方示例格式）
                     const authInfo = {
-                        appid: this.appId,
-                        userid: this.userId,
-                        channel: this.sessionId,
+                        appId: this.appId,
+                        uid: this.userId,
                         token: this.token,
-                        nonce: 'AK-' + Math.floor(Date.now() / 1000),
-                        timestamp: Math.floor(Date.now() / 1000) + 48 * 60 * 60,
-                        gslb: ["https://rgslb.rtc.aliyuncs.com"]
+                        userName: this.userId,
+                        channel: this.sessionId
                     };
                     
                     console.log('鉴权信息:', {
-                        appid: this.appId,
-                        userid: this.userId,
+                        appId: this.appId,
+                        uid: this.userId,
                         channel: this.sessionId,
-                        tokenLength: this.token.length
+                        tokenLength: this.token.length,
+                        userName: this.userId
                     });
                     
-                    // 使用官方API加入频道
-                    await this.mediaEngine.joinChannel(authInfo, this.userId);
+                    // 使用官方API加入频道（按照vanillaVersion.html示例）
+                    await this.mediaEngine.join(authInfo);
                     console.log('会话加入成功');
-                    
-                    // 设置发布配置并发布流
-                    this.mediaEngine.configLocalAudioPublish = true;
-                    this.mediaEngine.configLocalCameraPublish = this.mode === 'video';
-                    
-                    await this.mediaEngine.publish();
-                    console.log('本地流发布成功');
                     
                     // 成功后隐藏等待界面
                     document.getElementById('waitingScreen').classList.add('hidden');
