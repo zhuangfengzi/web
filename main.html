@@ -248,10 +248,12 @@
                         await new Promise(resolve => setTimeout(resolve, 1000));
                         
                         // 检查加载状态
-                        if (typeof DingRTC !== 'undefined' && DingRTC.default) {
-                            console.log('媒体库加载成功:', typeof DingRTC);
-                            console.log('库版本:', DingRTC.VERSION || '未知');
-                            // 设置兼容别名
+                        if (typeof window.AliRtcEngine !== 'undefined') {
+                            console.log('媒体库加载成功，使用AliRtcEngine');
+                            resolve();
+                            return;
+                        } else if (typeof DingRTC !== 'undefined' && DingRTC.default) {
+                            console.log('媒体库加载成功，设置AliRtcEngine别名');
                             window.AliRtcEngine = DingRTC.default;
                             resolve();
                             return;
